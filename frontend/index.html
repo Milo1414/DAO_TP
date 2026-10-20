@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca - Red de prestamos interbibliotecarios</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header class="encabezado">
+        <div class="marca">
+            <span class="marca-icono">B</span>
+            <div>
+                <h1>Biblioteca</h1>
+                <p>Red de prestamos interbibliotecarios</p>
+            </div>
+        </div>
+        <div class="estado-servidor" id="estado-servidor" title="Estado de la API">
+            <span class="punto"></span>
+            <span id="estado-servidor-texto">Conectando...</span>
+        </div>
+    </header>
+
+    <div class="diseno">
+        <nav class="menu" aria-label="Secciones">
+            <button type="button" data-seccion="inicio" class="activo">Inicio</button>
+            <button type="button" data-seccion="sedes">Sedes</button>
+            <button type="button" data-seccion="socios">Socios</button>
+            <button type="button" data-seccion="catalogo">Catalogo y ejemplares</button>
+            <button type="button" data-seccion="solicitudes">Solicitudes</button>
+            <button type="button" data-seccion="reservas">Reservas</button>
+            <button type="button" data-seccion="prestamos">Prestamos y devoluciones</button>
+            <button type="button" data-seccion="remitos">Remitos e historial</button>
+            <button type="button" data-seccion="reportes">Reportes</button>
+        </nav>
+
+        <main id="contenido" class="contenido">
+            <p class="cargando">Cargando datos...</p>
+        </main>
+    </div>
+
+    <div id="mensajes" class="mensajes" aria-live="polite"></div>
+    <script src="/app.js"></script>
+</body>
+</html>
