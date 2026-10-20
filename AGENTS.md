@@ -15,13 +15,13 @@ Priorizar pasos explícitos y nombres claros. Se aceptan más líneas, algunos r
 ## Estructura de carpetas y responsabilidades
 
 El proyecto se organiza en pocas carpetas claras:
-- Raíz: `main.py` (arranque del sistema), `demo.py` (demostración automatizada), `requirements.txt` (dependencias), `AGENTS.md`.
+- Raíz: `main.py` (arranque del sistema), `crear_base_demo.py` (genera la base ficticia), `biblioteca_demo.db` (datos de ejemplo versionados), `requirements.txt` (dependencias), `AGENTS.md`.
 - `backend/`: entidades del dominio (`sede.py`, `socio.py`, `catalogo.py`, `prestamos.py`, `remito.py`), coordinador (`red.py`), reportes y fábricas (`reportes.py`), conversión JSON (`serializadores.py`), rutas HTTP (`rutas.py`) y aplicación Flask (`app.py`).
 - `backend/migracion.py`: preparación y migración de una base SQLite existente, respaldo y revisión de datos heredados. Es el único módulo que usa `sqlite3` directamente.
 - `backend/modelos.py`: configuración de Flask-SQLAlchemy, `Configuracion` y activación de claves foráneas.
 - `frontend/`: interfaz web con HTML, CSS y JavaScript (`index.html`, `styles.css`, `app.js`), servida por Flask y separada del dominio.
 - `tests/`: pruebas con `unittest` (`apoyo.py`, `test_api.py`, `test_orm.py`, `test_patrones.py`, `test_reportes.py`, `test_migracion.py`).
-- `Documentacion/`: `ENUNCIADO.md`, `README.md`, `FASES.md`.
+- `Documentacion/`: `ENUNCIADO.md`, `README.md`, `FASES.md`, `GUIA_DEFENSA.md`.
 
 Reglas de separación:
 - `backend` y `RedBibliotecas` no deben importar módulos del frontend, hacer `input()`, ni contener sentencias SQL.

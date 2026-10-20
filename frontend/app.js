@@ -115,6 +115,75 @@ function hoyISO() {
     return fecha.getFullYear() + "-" + mes + "-" + dia;
 }
 
+function esDigitoHorario(caracter) {
+    return caracter >= "0" && caracter <= "9";
+}
+
+function formatearHorario(valor) {
+    let digitos = "";
+    for (let indice = 0; indice < valor.length; indice += 1) {
+        if (esDigitoHorario(valor[indice])) {
+            digitos += valor[indice];
+        }
+    }
+    if (digitos.length > 8) {
+        digitos = digitos.substring(0, 8);
+    }
+    let formateado = "";
+    for (let indice = 0; indice < digitos.length; indice += 1) {
+        if (indice === 2 || indice === 6) {
+            formateado += ":";
+        }
+        if (indice === 4) {
+            formateado += "-";
+        }
+        formateado += digitos[indice];
+    }
+    return formateado;
+}
+
+function contarDigitosAntes(valor, posicion) {
+    let cantidad = 0;
+    const limite = Math.min(posicion, valor.length);
+    for (let indice = 0; indice < limite; indice += 1) {
+        if (esDigitoHorario(valor[indice])) {
+            cantidad += 1;
+        }
+    }
+    return cantidad;
+}
+
+function posicionDespuesDeDigitos(valor, cantidad) {
+    if (cantidad <= 0) {
+        return 0;
+    }
+    let vistos = 0;
+    for (let indice = 0; indice < valor.length; indice += 1) {
+        if (esDigitoHorario(valor[indice])) {
+            vistos += 1;
+            if (vistos === cantidad) {
+                return indice + 1;
+            }
+        }
+    }
+    return valor.length;
+}
+
+function formatearCampoHorario(campo) {
+    const valorAnterior = campo.value;
+    const posicionAnterior = campo.selectionStart;
+    const formateado = formatearHorario(valorAnterior);
+    if (formateado === valorAnterior) {
+        return;
+    }
+    campo.value = formateado;
+    if (posicionAnterior !== null) {
+        const digitosAntes = contarDigitosAntes(valorAnterior, posicionAnterior);
+        const nuevaPosicion = posicionDespuesDeDigitos(formateado, digitosAntes);
+        campo.setSelectionRange(nuevaPosicion, nuevaPosicion);
+    }
+}
+
 function moneda(valor) {
     if (valor === null || valor === undefined) {
         return "-";
@@ -435,7 +504,8 @@ function renderSedes() {
     html += '<div class="campo"><label>Nombre</label><input name="nombre" required maxlength="200" value="' + esc(nombre) + '"></div>';
     html += '<div class="campo"><label>Direccion</label><input name="direccion" required maxlength="200" value="' + esc(direccion) + '"></div>';
     html += '<div class="campo"><label>Telefono</label><input name="telefono" required maxlength="40" value="' + esc(telefono) + '"></div>';
-    html += '<div class="campo"><label>Horario</label><input name="horario" required maxlength="20" placeholder="08:00-18:00" value="' + esc(horario) + '"></div>';
+    html += '<div class="campo"><label>Horario</label><input name="horario" required maxlength="11" inputmode="numeric" placeholder="08001800" value="' + esc(horario) + '">';
+    html += '<span class="campo-ayuda">Escribi solo los 8 numeros; los : y el - se agregan solos.</span></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">' +
         (sedeEditada ? "Guardar cambios" : "Crear sede") + "</button>";
     if (sedeEditada) {
@@ -969,6 +1039,13 @@ async function cargarReporte(nombre) {
 }
 
 function conectarEventos() {
+    document.addEventListener("input", function (evento) {
+        const campoHorario = evento.target.closest('input[name="horario"]');
+        if (campoHorario) {
+            formatearCampoHorario(campoHorario);
+        }
+    });
+
     document.addEventListener("click", async function (evento) {
         const botonSeccion = evento.target.closest(".menu [data-seccion]");
         if (botonSeccion) {
@@ -1016,6 +1093,7 @@ async function manejarFormulario(formulario) {
     const datos = Object.fromEntries(new FormData(formulario).entries());
 
     if (tipo === "sede") {
+        datos.horario = formatearHorario(datos.horario);
         if (estado.sedeEditada !== null) {
             await pedir("PUT", "/sedes/" + encodeURIComponent(estado.sedeEditada), {
                 nombre: datos.nombre,

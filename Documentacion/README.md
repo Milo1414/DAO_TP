@@ -48,28 +48,33 @@ python main.py
 Luego abrir `http://127.0.0.1:5000` en el navegador.
 
 La base se crea o se prepara automáticamente en `biblioteca.db`. También se
-puede indicar otra ruta con la variable de entorno `BIBLIOTECA_DB`:
+puede indicar otra ruta con la variable de entorno `BIBLIOTECA_DB`.
+
+Para abrir la aplicación con la base ficticia versionada, que ya contiene
+todos los casos de uso:
 
 ```powershell
-$env:BIBLIOTECA_DB = "C:\ruta\biblioteca.db"
+$env:BIBLIOTECA_DB = "biblioteca_demo.db"
 python main.py
 ```
 
-Para ejecutar una demostración automática que usa una base temporal y no
-modifica `biblioteca.db`:
+La base ficticia se puede regenerar con `python crear_base_demo.py`. Ese
+script usa el ORM y las operaciones de `RedBibliotecas`, no SQL manual, y
+reemplaza `biblioteca_demo.db` con datos de ejemplo completos.
 
-```powershell
-python demo.py
-```
+La base local de trabajo es `biblioteca.db`: no se versiona porque puede
+contener datos propios. La base ficticia `biblioteca_demo.db` sí se versiona
+para que el proyecto se pueda abrir y probar sin cargar datos a mano.
 
 ## Estructura
 
 ```text
 .
 ├── main.py                  arranque del servidor Flask
-├── demo.py                  demostración del circuito principal
+├── crear_base_demo.py       genera biblioteca_demo.db con el ORM
+├── biblioteca_demo.db       base ficticia con todos los casos
 ├── requirements.txt
-├── biblioteca.db            base SQLite (no se versiona)
+├── biblioteca.db            base SQLite local (no se versiona)
 ├── backend/
 │   ├── app.py               fábrica Flask, frontend y manejo de errores
 │   ├── rutas.py             endpoints de la API JSON
@@ -91,6 +96,10 @@ python demo.py
 │   └── app.js
 ├── tests/
 └── Documentacion/
+    ├── ENUNCIADO.md
+    ├── README.md
+    ├── FASES.md
+    └── GUIA_DEFENSA.md
 ```
 
 ## API

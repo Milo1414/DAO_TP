@@ -114,12 +114,22 @@ alineada con el código y publicar el repositorio.
 | Comprobación | Resultado |
 |---|---|
 | `python -m unittest discover -s tests -v` | 40 pruebas, todas correctas |
-| `python demo.py` | circuito local e interbibliotecario completo |
+| `python crear_base_demo.py` | base ficticia completa generada con el ORM |
 | `python -c "from backend.app import crear_aplicacion; ..."` | 49 rutas registradas |
 | `node --check frontend/app.js` | sin errores de sintaxis |
 | Prueba de navegador con Playwright | alta de sede, socio, libro, ejemplar, solicitud, entrega, devolución y reporte sin errores de consola |
 | Migración de `biblioteca.db` | respaldo creado y columna agregada |
 | Revisión de datos heredados | sede inválida informada sin modificar |
+| Apertura de `biblioteca_demo.db` | `/api/salud` sin problemas y nueve listados disponibles |
+| Formateo de horario en el navegador | Playwright verificó `08001800` -> `08:00-18:00` sin errores de consola |
+
+## Cierre de la entrega web
+
+- Se eliminó `demo.py`; la demostración persistente se reemplazó por
+  `crear_base_demo.py`, que usa el ORM y genera `biblioteca_demo.db`.
+- Se versionó `biblioteca_demo.db` con casos locales e interbibliotecarios.
+- Se agregó `Documentacion/GUIA_DEFENSA.md` con el mapa de archivos, la
+  conexión frontend/backend y las piezas complejas.
 
 ## Decisiones de alcance
 
@@ -136,7 +146,7 @@ alineada con el código y publicar el repositorio.
 
 1. Ejecutar `python main.py`.
 2. Abrir `http://127.0.0.1:5000`.
-3. Usar `python demo.py` para ver el circuito completo sin tocar la base real.
+3. Usar `python crear_base_demo.py` para regenerar `biblioteca_demo.db`; luego abrirla con `$env:BIBLIOTECA_DB = "biblioteca_demo.db"`.
 4. Ejecutar `python -m unittest discover -s tests -v` antes de cualquier
    entrega.
 5. Si se modifica el esquema, actualizar `migracion.py` y agregar una prueba
