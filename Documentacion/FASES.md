@@ -217,7 +217,13 @@ Observaciones que quedan abiertas (no son requisitos obligatorios):
   de baja. El extravío y la destrucción son parte de un proceso opcional.
 - El plazo y la multa se guardan en `configuracion`, pero no hay una pantalla
   ni una ruta para cambiarlos.
-- Los mensajes de error del backend y los datos de la demo no llevan tildes.
+
+Corrección posterior de textos: los mensajes del backend, los nombres de los
+reportes y los datos de `crear_base_demo.py` ahora llevan tildes y "ñ"
+("está dañado", "Cien años de soledad"). Los identificadores, las claves JSON
+y las sentencias SQL no cambiaron. Se regeneró `biblioteca_demo.db` y se
+ajustaron tres pruebas que comparaban los textos anteriores; la suite sigue en
+60 pruebas correctas.
 
 ## Decisiones de alcance
 

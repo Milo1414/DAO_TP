@@ -14,10 +14,10 @@ class Sede(db.Model):
     activa = db.Column(db.Boolean, nullable=False, default=True)
 
     def __init__(self, codigo, nombre, direccion, telefono, horario):
-        self.codigo = validar_codigo(codigo, "codigo de sede")
+        self.codigo = validar_codigo(codigo, "código de sede")
         self.nombre = validar_texto(nombre, "nombre de sede")
-        self.direccion = validar_texto(direccion, "direccion de sede")
-        self.telefono = validar_telefono(telefono, "telefono de sede")
+        self.direccion = validar_texto(direccion, "dirección de sede")
+        self.telefono = validar_telefono(telefono, "teléfono de sede")
         self.horario = validar_horario(horario, "horario de sede")
         self.activa = True
 
@@ -33,8 +33,8 @@ class Sede(db.Model):
         # Se validan todos los datos nuevos antes de modificar cualquier
         # atributo. Si uno falla, la sede conserva sus valores anteriores.
         nuevo_nombre = validar_texto(nombre, "nombre de sede")
-        nueva_direccion = validar_texto(direccion, "direccion de sede")
-        nuevo_telefono = validar_telefono(telefono, "telefono de sede")
+        nueva_direccion = validar_texto(direccion, "dirección de sede")
+        nuevo_telefono = validar_telefono(telefono, "teléfono de sede")
         nuevo_horario = validar_horario(horario, "horario de sede")
 
         self.nombre = nuevo_nombre
@@ -46,8 +46,8 @@ class Sede(db.Model):
         return self.activa
 
     def validar_datos(self):
-        validar_codigo(self.codigo, "codigo de sede")
+        validar_codigo(self.codigo, "código de sede")
         validar_texto(self.nombre, "nombre de sede")
-        validar_texto(self.direccion, "direccion de sede")
-        validar_telefono(self.telefono, "telefono de sede")
+        validar_texto(self.direccion, "dirección de sede")
+        validar_telefono(self.telefono, "teléfono de sede")
         validar_horario(self.horario, "horario de sede")

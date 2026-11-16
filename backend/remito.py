@@ -65,14 +65,14 @@ class Remito(db.Model):
     )
 
     def __init__(self, codigo, sede_origen, sede_destino, fecha_creacion, motivo=MOTIVO_PRESTAMO):
-        self.codigo = validar_codigo(codigo, "codigo de remito")
+        self.codigo = validar_codigo(codigo, "código de remito")
         self.sede_origen = validar_codigo(sede_origen, "sede de origen")
         self.sede_destino = validar_codigo(sede_destino, "sede de destino")
         if self.sede_origen == self.sede_destino:
             raise ErrorDatosInvalidos("Las sedes de origen y destino del remito no pueden ser iguales.")
         if motivo != Remito.MOTIVO_PRESTAMO and motivo != Remito.MOTIVO_RETORNO:
-            raise ErrorDatosInvalidos("Motivo de remito no valido: " + str(motivo))
-        self.fecha_creacion = validar_momento(fecha_creacion, "fecha de creacion del remito")
+            raise ErrorDatosInvalidos("Motivo de remito no válido: " + str(motivo))
+        self.fecha_creacion = validar_momento(fecha_creacion, "fecha de creación del remito")
         self.motivo = motivo
         self.estado_actual = Remito.ESTADO_PENDIENTE_EMPAQUE
         self.observadores = []
@@ -116,7 +116,7 @@ class Remito(db.Model):
         return self.estado_actual
 
     def validar_datos(self):
-        validar_codigo(self.codigo, "codigo de remito")
+        validar_codigo(self.codigo, "código de remito")
         validar_codigo(self.sede_origen, "sede de origen")
         validar_codigo(self.sede_destino, "sede de destino")
         if self.sede_origen == self.sede_destino:
@@ -157,7 +157,7 @@ class Remito(db.Model):
         if len(self.historial) > 0:
             ultimo_momento = self.historial[len(self.historial) - 1].momento
             if momento < ultimo_momento:
-                raise ErrorDatosInvalidos("El momento no puede ser anterior al ultimo evento del remito.")
+                raise ErrorDatosInvalidos("El momento no puede ser anterior al último evento del remito.")
 
     def _preparar_transicion(self, momento, descripcion):
         self._asegurar_observador_historial()
@@ -169,7 +169,7 @@ class Remito(db.Model):
 
     def empaquetar(self, momento=None):
         if self.estado_actual == Remito.ESTADO_EMPAQUETADO:
-            raise ErrorDatosInvalidos("El remito ya esta empaquetado.")
+            raise ErrorDatosInvalidos("El remito ya está empaquetado.")
         if self.estado_actual == Remito.ESTADO_DESPACHADO:
             raise ErrorDatosInvalidos("El remito ya fue despachado.")
         if self.estado_actual == Remito.ESTADO_RECIBIDO:
@@ -202,14 +202,14 @@ class Remito(db.Model):
             raise ErrorDatosInvalidos("El remito ya fue recibido.")
         if self.estado_actual != Remito.ESTADO_DESPACHADO:
             raise ErrorDatosInvalidos("No se puede recibir el remito en su estado actual.")
-        momento = self._preparar_transicion(momento, "momento de recepcion")
+        momento = self._preparar_transicion(momento, "momento de recepción")
         self.estado_actual = Remito.ESTADO_RECIBIDO
         self.notificar(self.estado_actual, momento)
 
     def cancelar(self, momento=None):
         if self.estado_actual not in (Remito.ESTADO_PENDIENTE_EMPAQUE, Remito.ESTADO_EMPAQUETADO):
             raise ErrorDatosInvalidos("Solo se puede cancelar un remito antes del despacho.")
-        momento = self._preparar_transicion(momento, "momento de cancelacion")
+        momento = self._preparar_transicion(momento, "momento de cancelación")
         self.estado_actual = Remito.ESTADO_CANCELADO
         self.notificar(self.estado_actual, momento)
 
@@ -218,9 +218,9 @@ class Remito(db.Model):
         if len(self.asignaciones) > 0:
             raise ErrorDatosInvalidos("El remito ya transporta un ejemplar.")
         if self.nombre_estado() != Remito.ESTADO_PENDIENTE_EMPAQUE:
-            raise ErrorDatosInvalidos("El remito ya empezo a moverse.")
-        codigo = validar_codigo(codigo_ejemplar, "codigo de ejemplar")
-        numero = validar_entero(numero_solicitud, "numero de solicitud", 1)
+            raise ErrorDatosInvalidos("El remito ya empezó a moverse.")
+        codigo = validar_codigo(codigo_ejemplar, "código de ejemplar")
+        numero = validar_entero(numero_solicitud, "número de solicitud", 1)
         asignacion = RemitoEjemplar(self.codigo, codigo, numero, None)
         self.asignaciones.append(asignacion)
 
@@ -229,8 +229,8 @@ class Remito(db.Model):
         if len(self.asignaciones) > 0:
             raise ErrorDatosInvalidos("El remito ya transporta un ejemplar.")
         if self.nombre_estado() != Remito.ESTADO_PENDIENTE_EMPAQUE:
-            raise ErrorDatosInvalidos("El remito ya empezo a moverse.")
-        codigo = validar_codigo(codigo_ejemplar, "codigo de ejemplar")
+            raise ErrorDatosInvalidos("El remito ya empezó a moverse.")
+        codigo = validar_codigo(codigo_ejemplar, "código de ejemplar")
         asignacion = RemitoEjemplar(self.codigo, codigo, None, None)
         self.asignaciones.append(asignacion)
 
@@ -253,10 +253,10 @@ class RemitoEjemplar(db.Model):
         self.estado_fisico_recepcion = estado_fisico_recepcion
 
     def validar_datos(self):
-        validar_codigo(self.remito_codigo, "codigo de remito")
-        validar_codigo(self.ejemplar_codigo, "codigo de ejemplar")
+        validar_codigo(self.remito_codigo, "código de remito")
+        validar_codigo(self.ejemplar_codigo, "código de ejemplar")
         if self.numero_solicitud is not None:
-            validar_entero(self.numero_solicitud, "numero de solicitud", 1)
+            validar_entero(self.numero_solicitud, "número de solicitud", 1)
         if self.estado_fisico_recepcion is not None:
             validar_estado_fisico(self.estado_fisico_recepcion)
 
@@ -277,7 +277,7 @@ class RemitoHistorial(db.Model):
         self.momento = momento
 
     def validar_datos(self):
-        validar_codigo(self.remito_codigo, "codigo de remito")
+        validar_codigo(self.remito_codigo, "código de remito")
         validar_entero(self.orden, "orden del historial", 0)
         if self.nombre_estado not in ("pendiente_empaque", "empaquetado", "despachado", "recibido", "cancelado"):
             raise ErrorDatosInvalidos("Estado del historial desconocido.")

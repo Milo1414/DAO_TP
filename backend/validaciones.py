@@ -31,7 +31,7 @@ def validar_codigo(valor, descripcion):
             continue
         if caracter in "-_.":
             continue
-        raise ErrorDatosInvalidos(descripcion + " contiene un caracter no permitido: " + caracter)
+        raise ErrorDatosInvalidos(descripcion + " contiene un carácter no permitido: " + caracter)
     return texto
 
 
@@ -39,12 +39,12 @@ def validar_entero(valor, descripcion, minimo=0, maximo=None):
     if valor is None:
         raise ErrorDatosInvalidos("Falta el dato: " + descripcion)
     if isinstance(valor, bool):
-        raise ErrorDatosInvalidos(descripcion + " debe ser un numero entero.")
+        raise ErrorDatosInvalidos(descripcion + " debe ser un número entero.")
     if isinstance(valor, int):
         entero = valor
     elif isinstance(valor, float):
         if valor.is_integer() == False:
-            raise ErrorDatosInvalidos(descripcion + " debe ser un numero entero: " + str(valor))
+            raise ErrorDatosInvalidos(descripcion + " debe ser un número entero: " + str(valor))
         entero = int(valor)
     elif isinstance(valor, str):
         texto = valor.strip()
@@ -55,9 +55,9 @@ def validar_entero(valor, descripcion, minimo=0, maximo=None):
         elif texto.startswith("-") and texto[1:].isdigit():
             entero = int(texto)
         else:
-            raise ErrorDatosInvalidos(descripcion + " debe ser un numero entero: " + str(valor))
+            raise ErrorDatosInvalidos(descripcion + " debe ser un número entero: " + str(valor))
     else:
-        raise ErrorDatosInvalidos(descripcion + " debe ser un numero entero.")
+        raise ErrorDatosInvalidos(descripcion + " debe ser un número entero.")
     if entero < minimo:
         raise ErrorDatosInvalidos(descripcion + " no puede ser menor a " + str(minimo) + ".")
     if maximo is not None and entero > maximo:
@@ -65,7 +65,7 @@ def validar_entero(valor, descripcion, minimo=0, maximo=None):
     return entero
 
 
-def validar_anio(valor, descripcion="anio del libro"):
+def validar_anio(valor, descripcion="año del libro"):
     # Regla del proyecto: se aceptan obras desde el anio 1000 y hasta el
     # anio en curso. Un libro no puede haberse publicado en el futuro.
     anio_actual = datetime.date.today().year
@@ -78,7 +78,7 @@ def validar_fecha(valor, descripcion):
         return valor.date()
     if isinstance(valor, datetime.date):
         return valor
-    raise ErrorDatosInvalidos(descripcion + " debe ser una fecha valida.")
+    raise ErrorDatosInvalidos(descripcion + " debe ser una fecha válida.")
 
 
 def validar_momento(valor, descripcion):
@@ -88,7 +88,7 @@ def validar_momento(valor, descripcion):
         return valor
     if isinstance(valor, datetime.date):
         return datetime.datetime.combine(valor, datetime.time(0, 0))
-    raise ErrorDatosInvalidos(descripcion + " debe ser una fecha y hora valida.")
+    raise ErrorDatosInvalidos(descripcion + " debe ser una fecha y hora válida.")
 
 
 def validar_telefono(valor, descripcion="telefono"):
@@ -103,7 +103,7 @@ def validar_telefono(valor, descripcion="telefono"):
         if caracter.isdigit():
             cantidad_digitos = cantidad_digitos + 1
     if cantidad_digitos < 3:
-        raise ErrorDatosInvalidos(descripcion + " debe contener al menos 3 digitos: " + texto)
+        raise ErrorDatosInvalidos(descripcion + " debe contener al menos 3 dígitos: " + texto)
     return texto
 
 
@@ -112,7 +112,7 @@ def validar_email(valor, descripcion="email del socio"):
     if " " in texto:
         raise ErrorDatosInvalidos(descripcion + " no puede contener espacios: " + texto)
     if texto.count("@") != 1:
-        raise ErrorDatosInvalidos(descripcion + " debe contener un unico '@': " + texto)
+        raise ErrorDatosInvalidos(descripcion + " debe contener un único '@': " + texto)
     partes = texto.split("@")
     usuario = partes[0]
     dominio = partes[1]
@@ -123,7 +123,7 @@ def validar_email(valor, descripcion="email del socio"):
     partes_dominio = dominio.split(".")
     for parte in partes_dominio:
         if parte == "":
-            raise ErrorDatosInvalidos(descripcion + " tiene un dominio invalido: " + texto)
+            raise ErrorDatosInvalidos(descripcion + " tiene un dominio inválido: " + texto)
     return texto
 
 
@@ -142,10 +142,10 @@ def validar_horario(valor, descripcion="horario de sede"):
         raise ErrorDatosInvalidos(descripcion + " debe tener formato HH:MM-HH:MM (ej: 08:00-18:00): " + texto)
     if (len(partes_apertura[0]) != 2 or len(partes_apertura[1]) != 2 or
             len(partes_cierre[0]) != 2 or len(partes_cierre[1]) != 2):
-        raise ErrorDatosInvalidos(descripcion + " debe tener dos digitos para horas y minutos (ej: 08:00-18:00): " + texto)
+        raise ErrorDatosInvalidos(descripcion + " debe tener dos dígitos para horas y minutos (ej: 08:00-18:00): " + texto)
     if (partes_apertura[0].isdigit() == False or partes_apertura[1].isdigit() == False or
             partes_cierre[0].isdigit() == False or partes_cierre[1].isdigit() == False):
-        raise ErrorDatosInvalidos(descripcion + " contiene caracteres no numericos en horas o minutos: " + texto)
+        raise ErrorDatosInvalidos(descripcion + " contiene caracteres no numéricos en horas o minutos: " + texto)
     hora_apertura = int(partes_apertura[0])
     minuto_apertura = int(partes_apertura[1])
     hora_cierre = int(partes_cierre[0])
@@ -157,26 +157,26 @@ def validar_horario(valor, descripcion="horario de sede"):
     minutos_apertura = hora_apertura * 60 + minuto_apertura
     minutos_cierre = hora_cierre * 60 + minuto_cierre
     if minutos_cierre <= minutos_apertura:
-        raise ErrorDatosInvalidos(descripcion + " debe tener cierre posterior a apertura dentro del mismo dia: " + texto)
+        raise ErrorDatosInvalidos(descripcion + " debe tener cierre posterior a apertura dentro del mismo día: " + texto)
     return f"{hora_apertura:02d}:{minuto_apertura:02d}-{hora_cierre:02d}:{minuto_cierre:02d}"
 
 
 def validar_estado_fisico(valor):
     estados = ("bueno", "deteriorado", "requiere_reparacion")
     if valor not in estados:
-        raise ErrorDatosInvalidos("Estado fisico no valido: " + str(valor))
+        raise ErrorDatosInvalidos("Estado físico no válido: " + str(valor))
     return valor
 
 
 def validar_tipo_solicitud(valor):
     tipos = ("local", "interbibliotecario")
     if valor not in tipos:
-        raise ErrorDatosInvalidos("Tipo de solicitud no valido: " + str(valor))
+        raise ErrorDatosInvalidos("Tipo de solicitud no válido: " + str(valor))
     return valor
 
 
 def validar_historial_remito(fecha_creacion, estado_actual, eventos):
-    creacion = validar_momento(fecha_creacion, "creacion del remito")
+    creacion = validar_momento(fecha_creacion, "creación del remito")
     secuencia = ["pendiente_empaque", "empaquetado", "despachado", "recibido"]
     if len(eventos) == 0:
         raise ErrorDatosInvalidos("El remito no tiene historial.")
@@ -188,13 +188,13 @@ def validar_historial_remito(fecha_creacion, estado_actual, eventos):
             raise ErrorDatosInvalidos("El orden del historial debe ser consecutivo desde cero.")
         if estado == "cancelado":
             if indice not in (1, 2) or indice != len(eventos) - 1:
-                raise ErrorDatosInvalidos("La cancelacion solo puede cerrar el historial antes del despacho.")
+                raise ErrorDatosInvalidos("La cancelación solo puede cerrar el historial antes del despacho.")
         elif indice >= len(secuencia) or estado != secuencia[indice]:
-            raise ErrorDatosInvalidos("La secuencia del historial del remito no es valida.")
+            raise ErrorDatosInvalidos("La secuencia del historial del remito no es válida.")
         if momento < anterior:
-            raise ErrorDatosInvalidos("La cronologia del historial del remito no es valida.")
+            raise ErrorDatosInvalidos("La cronología del historial del remito no es válida.")
         if indice == 0 and momento != creacion:
-            raise ErrorDatosInvalidos("El primer evento debe coincidir con la creacion del remito.")
+            raise ErrorDatosInvalidos("El primer evento debe coincidir con la creación del remito.")
         anterior = momento
     if eventos[-1][1] != estado_actual:
-        raise ErrorDatosInvalidos("El ultimo historial no coincide con el estado actual.")
+        raise ErrorDatosInvalidos("El último historial no coincide con el estado actual.")

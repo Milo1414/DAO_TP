@@ -36,7 +36,7 @@ red = RedBibliotecas()
 def leer_json():
     datos = request.get_json(silent=True)
     if datos is None or isinstance(datos, dict) == False:
-        raise ErrorDatosInvalidos("El cuerpo de la peticion debe ser un objeto JSON valido.")
+        raise ErrorDatosInvalidos("El cuerpo de la petición debe ser un objeto JSON válido.")
     return datos
 
 
@@ -91,7 +91,7 @@ def parsear_momento(valor, nombre):
     try:
         return datetime.datetime.fromisoformat(valor)
     except ValueError:
-        raise ErrorDatosInvalidos("El campo " + nombre + " no es una fecha y hora valida: " + valor)
+        raise ErrorDatosInvalidos("El campo " + nombre + " no es una fecha y hora válida: " + valor)
 
 
 def argumento(nombre):
@@ -369,7 +369,7 @@ def entregar_solicitud(numero):
     return respuesta({
         "solicitud": solicitud_a_diccionario(solicitud, red),
         "prestamo": prestamo_a_diccionario(prestamo, red),
-    }, "Prestamo entregado.", 201)
+    }, "Préstamo entregado.", 201)
 
 
 # ---------- Reservas ----------
@@ -417,7 +417,7 @@ def listar_prestamos():
 def obtener_prestamo(numero):
     prestamo = red.buscar_prestamo(numero)
     if prestamo is None:
-        raise ErrorNoEncontrado("No existe el prestamo: " + str(numero))
+        raise ErrorNoEncontrado("No existe el préstamo: " + str(numero))
     return respuesta(prestamo_a_diccionario(prestamo, red))
 
 
@@ -430,7 +430,7 @@ def registrar_devolucion(numero):
         obtener_texto(datos, "sede_devolucion"),
         obtener_texto(datos, "estado_fisico"),
     )
-    return respuesta(prestamo_a_diccionario(prestamo, red), "Devolucion registrada.")
+    return respuesta(prestamo_a_diccionario(prestamo, red), "Devolución registrada.")
 
 
 # ---------- Remitos ----------
@@ -473,7 +473,7 @@ def crear_remito_prestamo():
     if momento is None:
         momento = datetime.datetime.now()
     remito = red.crear_remito_para_solicitud(solicitud_numero, momento)
-    return respuesta(remito_a_diccionario(remito), "Remito de prestamo creado.", 201)
+    return respuesta(remito_a_diccionario(remito), "Remito de préstamo creado.", 201)
 
 
 @api.post("/remitos/retorno")

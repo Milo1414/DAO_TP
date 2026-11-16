@@ -87,7 +87,7 @@ class PruebaMigracion(unittest.TestCase):
         self.aplicacion = aplicacion
         problemas = aplicacion.config["PROBLEMAS_BASE"]
         texto = "\n".join(problemas)
-        self.assertIn("telefono de sede", texto)
+        self.assertIn("teléfono de sede", texto)
         self.assertIn("horario de sede", texto)
 
         cliente = aplicacion.test_client()

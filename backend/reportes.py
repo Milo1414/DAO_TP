@@ -22,7 +22,7 @@ class ReporteActivosVencidos(Reporte):
     # Cantidad de prestamos activos y vencidos por sede de destino, con la
     # proporcion de vencidos, el atraso promedio y la multa acumulada.
     def nombre(self):
-        return "Prestamos activos y vencidos por sede"
+        return "Préstamos activos y vencidos por sede"
 
     def generar(self, red, parametros):
         fecha = parametros.get("fecha_referencia")
@@ -69,7 +69,7 @@ class ReporteDisponibilidad(Reporte):
     # su remito activo. Una copia sin ubicacion ni remito activo se atribuye
     # a su sede de pertenencia para no perderla del inventario.
     def nombre(self):
-        return "Disponibilidad del catalogo por sede y libro"
+        return "Disponibilidad del catálogo por sede y libro"
 
     def generar(self, red, parametros):
         filtro_sede = parametros.get("sede")
@@ -146,7 +146,7 @@ class ReporteLibrosSolicitados(Reporte):
     # Ranking de libros con solicitudes interbibliotecarias. Filtra por
     # periodo y, opcionalmente, por sede de origen o destino.
     def nombre(self):
-        return "Libros mas solicitados entre sedes"
+        return "Libros más solicitados entre sedes"
 
     def generar(self, red, parametros):
         fecha_desde = parametros.get("fecha_desde")
@@ -202,7 +202,7 @@ class ReporteMovimientoEnvios(Reporte):
     # creacion) en horas y dias sin truncar. La incidencia de danio usa el
     # estado fisico registrado al recibir, no el estado actual de la copia.
     def nombre(self):
-        return "Movimiento y tiempo de envio entre sedes"
+        return "Movimiento y tiempo de envío entre sedes"
 
     def generar(self, red, parametros):
         grupos = {}

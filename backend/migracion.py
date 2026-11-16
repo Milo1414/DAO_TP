@@ -64,7 +64,7 @@ def _migrar_columnas(ruta_base, cambios):
             "ALTER TABLE remito_ejemplares ADD COLUMN estado_fisico_recepcion TEXT"
         )
         conexion.commit()
-        cambios.append("Se agrego estado_fisico_recepcion a remito_ejemplares.")
+        cambios.append("Se agregó estado_fisico_recepcion a remito_ejemplares.")
         return respaldo
     finally:
         conexion.close()
@@ -129,7 +129,7 @@ def _fecha(valor):
     if isinstance(valor, datetime.date):
         return valor
     if isinstance(valor, str) == False:
-        raise ValueError("la fecha no es valida")
+        raise ValueError("la fecha no es válida")
     return datetime.date.fromisoformat(valor)
 
 
@@ -139,7 +139,7 @@ def _momento(valor):
     if isinstance(valor, datetime.date):
         return datetime.datetime.combine(valor, datetime.time(0, 0))
     if isinstance(valor, str) == False:
-        raise ValueError("la fecha y hora no es valida")
+        raise ValueError("la fecha y hora no es válida")
     return validar_momento(datetime.datetime.fromisoformat(valor), "momento")
 
 
@@ -214,10 +214,10 @@ def _conjunto(filas, columna):
 
 def _revisar_sede(fila, problemas):
     etiqueta = "Sede '" + str(fila["codigo"]) + "'"
-    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "codigo de sede")
+    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "código de sede")
     _probar(problemas, etiqueta, validar_texto, fila["nombre"], "nombre de sede")
-    _probar(problemas, etiqueta, validar_texto, fila["direccion"], "direccion de sede")
-    _probar(problemas, etiqueta, validar_telefono, fila["telefono"], "telefono de sede")
+    _probar(problemas, etiqueta, validar_texto, fila["direccion"], "dirección de sede")
+    _probar(problemas, etiqueta, validar_telefono, fila["telefono"], "teléfono de sede")
     _probar(problemas, etiqueta, validar_horario, fila["horario"], "horario de sede")
     if fila["activa"] not in (0, 1):
         _agregar(problemas, etiqueta, "el campo activa debe ser 0 o 1")
@@ -225,10 +225,10 @@ def _revisar_sede(fila, problemas):
 
 def _revisar_socio(fila, problemas):
     etiqueta = "Socio '" + str(fila["numero"]) + "'"
-    _probar(problemas, etiqueta, validar_entero, fila["numero"], "numero de socio", 1)
+    _probar(problemas, etiqueta, validar_entero, fila["numero"], "número de socio", 1)
     _probar(problemas, etiqueta, validar_texto, fila["nombre"], "nombre del socio")
     _probar(problemas, etiqueta, validar_email, fila["email"], "email del socio")
-    _probar(problemas, etiqueta, validar_telefono, fila["telefono"], "telefono del socio")
+    _probar(problemas, etiqueta, validar_telefono, fila["telefono"], "teléfono del socio")
     if fila["habilitado"] not in (0, 1):
         _agregar(problemas, etiqueta, "el campo habilitado debe ser 0 o 1")
 
@@ -236,21 +236,21 @@ def _revisar_socio(fila, problemas):
 def _revisar_libro(fila, problemas):
     etiqueta = "Libro '" + str(fila["isbn"]) + "'"
     _probar(problemas, etiqueta, validar_codigo, fila["isbn"], "ISBN")
-    _probar(problemas, etiqueta, validar_texto, fila["titulo"], "titulo del libro")
+    _probar(problemas, etiqueta, validar_texto, fila["titulo"], "título del libro")
     _probar(problemas, etiqueta, validar_texto, fila["autor"], "autor del libro")
-    _probar(problemas, etiqueta, validar_anio, fila["anio"], "anio del libro")
-    _probar(problemas, etiqueta, validar_texto, fila["genero"], "genero del libro")
+    _probar(problemas, etiqueta, validar_anio, fila["anio"], "año del libro")
+    _probar(problemas, etiqueta, validar_texto, fila["genero"], "género del libro")
 
 
 def _revisar_ejemplar(fila, codigos_sede, isbns, numeros_solicitud, reservas_por_numero, problemas):
     etiqueta = "Ejemplar '" + str(fila["codigo"]) + "'"
-    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "codigo de ejemplar")
+    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "código de ejemplar")
     if fila["libro_isbn"] not in isbns:
         _agregar(problemas, etiqueta, "el libro no existe")
     if fila["sede_pertenencia"] not in codigos_sede:
         _agregar(problemas, etiqueta, "la sede de pertenencia no existe")
     if fila["ubicacion_actual"] is not None and fila["ubicacion_actual"] not in codigos_sede:
-        _agregar(problemas, etiqueta, "la ubicacion actual no existe")
+        _agregar(problemas, etiqueta, "la ubicación actual no existe")
     if fila["estado_disponibilidad"] not in Ejemplar.ESTADOS_DISPONIBILIDAD:
         _agregar(problemas, etiqueta, "estado de disponibilidad desconocido")
     _probar(problemas, etiqueta, validar_estado_fisico, fila["estado_fisico"])
@@ -266,23 +266,23 @@ def _revisar_ejemplar(fila, codigos_sede, isbns, numeros_solicitud, reservas_por
             _agregar(
                 problemas,
                 etiqueta,
-                "tiene una solicitud y una reserva asignadas que no estan vinculadas",
+                "tiene una solicitud y una reserva asignadas que no están vinculadas",
             )
     if fila["estado_disponibilidad"] == Ejemplar.DISPONIBLE:
         if fila["solicitud_asignada"] is not None or fila["reserva_asignada"] is not None:
-            _agregar(problemas, etiqueta, "esta disponible pero conserva una asignacion")
+            _agregar(problemas, etiqueta, "está disponible pero conserva una asignación")
     if fila["estado_disponibilidad"] == Ejemplar.EN_TRANSITO and fila["ubicacion_actual"] is not None:
-        _agregar(problemas, etiqueta, "esta en transito pero tiene ubicacion fisica")
+        _agregar(problemas, etiqueta, "está en tránsito pero tiene ubicación física")
     if fila["estado_disponibilidad"] != Ejemplar.EN_TRANSITO and fila["ubicacion_actual"] is None:
-        _agregar(problemas, etiqueta, "esta fuera de transito pero no tiene ubicacion fisica")
+        _agregar(problemas, etiqueta, "está fuera de tránsito pero no tiene ubicación física")
     if fila["estado_disponibilidad"] == Ejemplar.DISPONIBLE:
         if fila["estado_fisico"] == Ejemplar.FISICO_REPARACION or fila["ubicacion_actual"] != fila["sede_pertenencia"]:
-            _agregar(problemas, etiqueta, "esta disponible pero necesita reparacion o retorno")
+            _agregar(problemas, etiqueta, "está disponible pero necesita reparación o retorno")
 
 
 def _revisar_solicitud(fila, numeros_socio, isbns, codigos_ejemplar, codigos_sede, problemas):
     etiqueta = "Solicitud '" + str(fila["numero"]) + "'"
-    _probar(problemas, etiqueta, validar_entero, fila["numero"], "numero de solicitud", 1)
+    _probar(problemas, etiqueta, validar_entero, fila["numero"], "número de solicitud", 1)
     if fila["socio_numero"] not in numeros_socio:
         _agregar(problemas, etiqueta, "el socio no existe")
     if fila["libro_isbn"] not in isbns:
@@ -306,8 +306,8 @@ def _revisar_solicitud(fila, numeros_socio, isbns, codigos_ejemplar, codigos_sed
 
 
 def _revisar_prestamo(fila, numeros_solicitud, numeros_socio, codigos_ejemplar, codigos_sede, problemas):
-    etiqueta = "Prestamo '" + str(fila["numero"]) + "'"
-    _probar(problemas, etiqueta, validar_entero, fila["numero"], "numero de prestamo", 1)
+    etiqueta = "Préstamo '" + str(fila["numero"]) + "'"
+    _probar(problemas, etiqueta, validar_entero, fila["numero"], "número de préstamo", 1)
     if fila["solicitud_numero"] not in numeros_solicitud:
         _agregar(problemas, etiqueta, "la solicitud no existe")
     if fila["socio_numero"] not in numeros_socio:
@@ -327,19 +327,19 @@ def _revisar_prestamo(fila, numeros_solicitud, numeros_socio, codigos_ejemplar, 
     try:
         inicio = _fecha(fila["fecha_prestamo"])
         if _fecha(fila["fecha_vencimiento"]) < inicio:
-            _agregar(problemas, etiqueta, "el vencimiento es anterior al prestamo")
+            _agregar(problemas, etiqueta, "el vencimiento es anterior al préstamo")
         if fila["fecha_devolucion"] is not None and _fecha(fila["fecha_devolucion"]) < inicio:
-            _agregar(problemas, etiqueta, "la devolucion es anterior al prestamo")
+            _agregar(problemas, etiqueta, "la devolución es anterior al préstamo")
     except (ValueError, TypeError):
         pass  # Las fechas invalidas ya se informaron individualmente.
     if fila["estado"] == Prestamo.ESTADO_DEVUELTO:
         if (fila["fecha_devolucion"] is None or fila["sede_devolucion"] is None or
                 fila["estado_fisico_devolucion"] is None):
-            _agregar(problemas, etiqueta, "faltan datos de devolucion")
+            _agregar(problemas, etiqueta, "faltan datos de devolución")
     elif fila["estado"] == Prestamo.ESTADO_ACTIVO:
         if (fila["fecha_devolucion"] is not None or fila["sede_devolucion"] is not None or
                 fila["estado_fisico_devolucion"] is not None or fila["multa"] != 0):
-            _agregar(problemas, etiqueta, "esta activo pero conserva datos de devolucion")
+            _agregar(problemas, etiqueta, "está activo pero conserva datos de devolución")
     try:
         multa = float(fila["multa"])
         if not math.isfinite(multa) or multa < 0:
@@ -347,14 +347,14 @@ def _revisar_prestamo(fila, numeros_solicitud, numeros_socio, codigos_ejemplar, 
     except (TypeError, ValueError) as error:
         _agregar(problemas, etiqueta, str(error))
     if fila["sede_devolucion"] is not None and fila["sede_devolucion"] not in codigos_sede:
-        _agregar(problemas, etiqueta, "la sede de devolucion no existe")
+        _agregar(problemas, etiqueta, "la sede de devolución no existe")
     if fila["estado_fisico_devolucion"] is not None:
         _probar(problemas, etiqueta, validar_estado_fisico, fila["estado_fisico_devolucion"])
 
 
 def _revisar_reserva(fila, numeros_socio, isbns, codigos_sede, codigos_ejemplar, numeros_solicitud, problemas):
     etiqueta = "Reserva '" + str(fila["numero"]) + "'"
-    _probar(problemas, etiqueta, validar_entero, fila["numero"], "numero de reserva", 1)
+    _probar(problemas, etiqueta, validar_entero, fila["numero"], "número de reserva", 1)
     if fila["estado"] in (Reserva.ESTADO_ASIGNADA, Reserva.ESTADO_CUMPLIDA) and fila["ejemplar_codigo"] is None:
         _agregar(problemas, etiqueta, "la reserva atendida no tiene ejemplar")
     if fila["estado"] == Reserva.ESTADO_CUMPLIDA and fila["solicitud_numero"] is None:
@@ -381,7 +381,7 @@ def _revisar_reserva(fila, numeros_socio, isbns, codigos_sede, codigos_ejemplar,
 
 def _revisar_remito(fila, codigos_sede, problemas):
     etiqueta = "Remito '" + str(fila["codigo"]) + "'"
-    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "codigo de remito")
+    _probar(problemas, etiqueta, validar_codigo, fila["codigo"], "código de remito")
     if fila["sede_origen"] not in codigos_sede:
         _agregar(problemas, etiqueta, "la sede de origen no existe")
     if fila["sede_destino"] not in codigos_sede:
@@ -455,13 +455,13 @@ def _revisar_relaciones(solicitudes, prestamos, ejemplares, reservas, problemas)
                 _agregar(problemas, "Solicitud '" + str(solicitud["numero"]) + "'", "el libro u origen no corresponde al ejemplar")
     for prestamo in prestamos:
         solicitud = por_numero.get(prestamo["solicitud_numero"])
-        etiqueta = "Prestamo '" + str(prestamo["numero"]) + "'"
+        etiqueta = "Préstamo '" + str(prestamo["numero"]) + "'"
         if solicitud is not None:
             for campo in ("socio_numero", "ejemplar_codigo", "sede_origen", "sede_destino"):
                 if prestamo[campo] != solicitud[campo]:
                     _agregar(problemas, etiqueta, "no coincide con su solicitud: " + campo)
             if solicitud["estado"] != SolicitudPrestamo.ESTADO_ENTREGADA:
-                _agregar(problemas, etiqueta, "su solicitud no esta entregada")
+                _agregar(problemas, etiqueta, "su solicitud no está entregada")
         for otro in prestamos:
             if otro["numero"] <= prestamo["numero"] or otro["ejemplar_codigo"] != prestamo["ejemplar_codigo"]:
                 continue
@@ -475,7 +475,7 @@ def _revisar_relaciones(solicitudes, prestamos, ejemplares, reservas, problemas)
                 if otro["fecha_devolucion"] is not None:
                     otro_fin = _fecha(otro["fecha_devolucion"])
                 if inicio < otro_fin and otro_inicio < fin:
-                    _agregar(problemas, etiqueta, "se superpone con el prestamo " + str(otro["numero"]))
+                    _agregar(problemas, etiqueta, "se superpone con el préstamo " + str(otro["numero"]))
             except (ValueError, TypeError):
                 pass
     for ejemplar in ejemplares:
@@ -484,7 +484,7 @@ def _revisar_relaciones(solicitudes, prestamos, ejemplares, reservas, problemas)
         if solicitud is not None:
             if (solicitud["ejemplar_codigo"] != ejemplar["codigo"] or
                     solicitud["estado"] != SolicitudPrestamo.ESTADO_PENDIENTE):
-                _agregar(problemas, "Ejemplar '" + str(ejemplar["codigo"]) + "'", "la solicitud asignada no corresponde o no esta pendiente")
+                _agregar(problemas, "Ejemplar '" + str(ejemplar["codigo"]) + "'", "la solicitud asignada no corresponde o no está pendiente")
     for reserva in reservas:
         if reserva["estado"] != Reserva.ESTADO_ASIGNADA:
             continue
@@ -501,23 +501,23 @@ def _revisar_configuracion(filas, problemas):
         clave = fila["clave"]
         valor = fila["valor"]
         if clave == "plazo_dias":
-            _probar(problemas, "Configuracion 'plazo_dias'", validar_entero, valor, "plazo_dias", 1)
+            _probar(problemas, "Configuración 'plazo_dias'", validar_entero, valor, "plazo_dias", 1)
         elif clave == "multa_por_dia":
             try:
                 monto = float(valor)
                 if math.isfinite(monto) == False:
-                    raise ValueError("debe ser un numero finito")
+                    raise ValueError("debe ser un número finito")
                 if monto < 0:
                     raise ValueError("no puede ser negativa")
             except (TypeError, ValueError) as error:
-                _agregar(problemas, "Configuracion 'multa_por_dia'", str(error))
+                _agregar(problemas, "Configuración 'multa_por_dia'", str(error))
 
 
 def _revisar_duplicados(valores, descripcion, problemas):
     vistos = []
     for valor in valores:
         if valor in vistos:
-            mensaje = "Hay mas de un registro con el mismo " + descripcion + ": " + str(valor)
+            mensaje = "Hay más de un registro con el mismo " + descripcion + ": " + str(valor)
             if mensaje not in problemas:
                 problemas.append(mensaje)
         else:

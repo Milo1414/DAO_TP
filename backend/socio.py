@@ -13,10 +13,10 @@ class Socio(db.Model):
     habilitado = db.Column(db.Boolean, nullable=False, default=True)
 
     def __init__(self, numero, nombre, email, telefono):
-        self.numero = validar_entero(numero, "numero de socio", 1)
+        self.numero = validar_entero(numero, "número de socio", 1)
         self.nombre = validar_texto(nombre, "nombre del socio")
         self.email = validar_email(email, "email del socio")
-        self.telefono = validar_telefono(telefono, "telefono del socio")
+        self.telefono = validar_telefono(telefono, "teléfono del socio")
         self.habilitado = True
 
     def inhabilitar(self):
@@ -29,15 +29,15 @@ class Socio(db.Model):
         return self.habilitado
 
     def validar_datos(self):
-        validar_entero(self.numero, "numero de socio", 1)
+        validar_entero(self.numero, "número de socio", 1)
         validar_texto(self.nombre, "nombre del socio")
         validar_email(self.email, "email del socio")
-        validar_telefono(self.telefono, "telefono del socio")
+        validar_telefono(self.telefono, "teléfono del socio")
 
     def modificar_datos(self, nombre, email, telefono):
         nuevo_nombre = validar_texto(nombre, "nombre del socio")
         nuevo_email = validar_email(email, "email del socio")
-        nuevo_telefono = validar_telefono(telefono, "telefono del socio")
+        nuevo_telefono = validar_telefono(telefono, "teléfono del socio")
 
         self.nombre = nuevo_nombre
         self.email = nuevo_email

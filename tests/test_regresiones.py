@@ -200,7 +200,7 @@ class PruebaCorrecciones(PruebaBase):
         db.session.commit()
         db.session.remove()
         problemas = preparar_base(self.ruta_base)["problemas"]
-        self.assertIn("cronologia", "\n".join(problemas))
+        self.assertIn("cronología", "\n".join(problemas))
 
     def test_revision_heredada_detecta_asignaciones_cruzadas(self):
         self.datos_basicos()

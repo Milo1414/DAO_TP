@@ -22,16 +22,16 @@ class Libro(db.Model):
 
     def __init__(self, isbn, titulo, autor, anio, genero):
         self.isbn = validar_codigo(isbn, "ISBN")
-        self.titulo = validar_texto(titulo, "titulo del libro")
+        self.titulo = validar_texto(titulo, "título del libro")
         self.autor = validar_texto(autor, "autor del libro")
-        self.anio = validar_anio(anio, "anio del libro")
-        self.genero = validar_texto(genero, "genero del libro")
+        self.anio = validar_anio(anio, "año del libro")
+        self.genero = validar_texto(genero, "género del libro")
 
     def modificar_datos(self, titulo, autor, anio, genero):
-        nuevo_titulo = validar_texto(titulo, "titulo del libro")
+        nuevo_titulo = validar_texto(titulo, "título del libro")
         nuevo_autor = validar_texto(autor, "autor del libro")
-        nuevo_anio = validar_anio(anio, "anio del libro")
-        nuevo_genero = validar_texto(genero, "genero del libro")
+        nuevo_anio = validar_anio(anio, "año del libro")
+        nuevo_genero = validar_texto(genero, "género del libro")
 
         self.titulo = nuevo_titulo
         self.autor = nuevo_autor
@@ -40,10 +40,10 @@ class Libro(db.Model):
 
     def validar_datos(self):
         validar_codigo(self.isbn, "ISBN")
-        validar_texto(self.titulo, "titulo del libro")
+        validar_texto(self.titulo, "título del libro")
         validar_texto(self.autor, "autor del libro")
-        validar_anio(self.anio, "anio del libro")
-        validar_texto(self.genero, "genero del libro")
+        validar_anio(self.anio, "año del libro")
+        validar_texto(self.genero, "género del libro")
 
 
 class Ejemplar(db.Model):
@@ -89,13 +89,13 @@ class Ejemplar(db.Model):
     reserva_asignada = db.Column(db.Integer, nullable=True)
 
     def __init__(self, codigo, libro_isbn, sede_pertenencia, ubicacion_actual):
-        self.codigo = validar_codigo(codigo, "codigo de ejemplar")
+        self.codigo = validar_codigo(codigo, "código de ejemplar")
         self.libro_isbn = validar_codigo(libro_isbn, "ISBN de libro")
         self.sede_pertenencia = validar_codigo(sede_pertenencia, "sede de pertenencia")
         if ubicacion_actual is None:
             self.ubicacion_actual = None
         else:
-            self.ubicacion_actual = validar_codigo(ubicacion_actual, "ubicacion actual")
+            self.ubicacion_actual = validar_codigo(ubicacion_actual, "ubicación actual")
         self.estado_disponibilidad = Ejemplar.DISPONIBLE
         self.estado_fisico = Ejemplar.FISICO_BUENO
         self.solicitud_asignada = None
@@ -105,23 +105,23 @@ class Ejemplar(db.Model):
         return self.estado_disponibilidad == Ejemplar.DISPONIBLE
 
     def validar_datos(self):
-        validar_codigo(self.codigo, "codigo de ejemplar")
+        validar_codigo(self.codigo, "código de ejemplar")
         validar_codigo(self.libro_isbn, "ISBN")
         validar_codigo(self.sede_pertenencia, "sede de pertenencia")
         if self.ubicacion_actual is not None:
-            validar_codigo(self.ubicacion_actual, "ubicacion actual")
+            validar_codigo(self.ubicacion_actual, "ubicación actual")
         if self.estado_disponibilidad not in Ejemplar.ESTADOS_DISPONIBILIDAD:
             raise ErrorDatosInvalidos("Estado de disponibilidad desconocido.")
         if self.estado_fisico not in Ejemplar.ESTADOS_FISICOS:
-            raise ErrorDatosInvalidos("Estado fisico desconocido.")
+            raise ErrorDatosInvalidos("Estado físico desconocido.")
         if self.estado_disponibilidad == Ejemplar.EN_TRANSITO:
             if self.ubicacion_actual is not None:
-                raise ErrorDatosInvalidos("Un ejemplar en transito no puede tener ubicacion fisica.")
+                raise ErrorDatosInvalidos("Un ejemplar en tránsito no puede tener ubicación física.")
         elif self.ubicacion_actual is None:
-            raise ErrorDatosInvalidos("Un ejemplar fuera de transito debe tener ubicacion fisica.")
+            raise ErrorDatosInvalidos("Un ejemplar fuera de tránsito debe tener ubicación física.")
         if self.esta_disponible():
             if self.esta_danado() or self.solicitud_asignada is not None or self.reserva_asignada is not None:
-                raise ErrorDatosInvalidos("Un ejemplar disponible no puede estar danado ni asignado.")
+                raise ErrorDatosInvalidos("Un ejemplar disponible no puede estar dañado ni asignado.")
             if self.ubicacion_actual != self.sede_pertenencia:
                 raise ErrorDatosInvalidos("Un ejemplar disponible debe estar en su sede de pertenencia.")
 
@@ -179,11 +179,11 @@ class Ejemplar(db.Model):
 
     def registrar_revision_fisica(self, estado_fisico):
         if estado_fisico not in Ejemplar.ESTADOS_FISICOS:
-            raise ErrorDatosInvalidos("Estado fisico no valido: " + str(estado_fisico))
+            raise ErrorDatosInvalidos("Estado físico no válido: " + str(estado_fisico))
         self.estado_fisico = estado_fisico
 
     def mover_a(self, codigo_sede):
         if codigo_sede is None:
             self.ubicacion_actual = None
         else:
-            self.ubicacion_actual = validar_codigo(codigo_sede, "codigo de sede")
+            self.ubicacion_actual = validar_codigo(codigo_sede, "código de sede")

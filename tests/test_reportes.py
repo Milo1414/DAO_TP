@@ -51,7 +51,7 @@ class PruebaReportes(PruebaBase):
         respuesta = self.pedir("GET", "/api/reportes/activos-vencidos?fecha_referencia=2026-01-30")
         self.assertEqual(respuesta.status_code, 200)
         datos = respuesta.get_json()["datos"]
-        self.assertEqual(datos["reporte"], "Prestamos activos y vencidos por sede")
+        self.assertEqual(datos["reporte"], "Préstamos activos y vencidos por sede")
         fila = None
         for candidata in datos["filas"]:
             if candidata["sede"] == "S2":

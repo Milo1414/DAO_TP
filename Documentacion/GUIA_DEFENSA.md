@@ -672,7 +672,7 @@ se eliminan.
 
 | Caso | Dónde verlo |
 |---|---|
-| Sede activa y sede dada de baja | S1, S2, S3 activas; S4 “Sede Historica” dada de baja |
+| Sede activa y sede dada de baja | S1, S2, S3 activas; S4 “Sede Histórica” dada de baja |
 | Socio habilitado e inhabilitado | Socios 1 a 3, 5 y 6 habilitados; socio 4 inhabilitado |
 | Libro con varias copias | L1 y L2 en distintas sedes |
 | Copia disponible | E1, E2, E7, E15, E16 |

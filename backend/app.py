@@ -78,7 +78,7 @@ def crear_aplicacion(ruta_base=None, configuracion_extra=None):
     def manejar_integridad(error):
         db.session.rollback()
         return _respuesta_error(
-            "La operacion no respeta una relacion o una restriccion de la base de datos.", 409
+            "La operación no respeta una relación o una restricción de la base de datos.", 409
         )
 
     @aplicacion.errorhandler(404)
@@ -90,14 +90,14 @@ def crear_aplicacion(ruta_base=None, configuracion_extra=None):
     @aplicacion.errorhandler(405)
     def manejar_405(error):
         if request.path.startswith("/api"):
-            return _respuesta_error("Metodo no permitido para esta ruta.", 405)
-        return "Metodo no permitido", 405
+            return _respuesta_error("Método no permitido para esta ruta.", 405)
+        return "Método no permitido", 405
 
     @aplicacion.errorhandler(500)
     def manejar_error_interno(error):
         db.session.rollback()
         if request.path.startswith("/api"):
-            return _respuesta_error("Ocurrio un error interno en el servidor.", 500)
+            return _respuesta_error("Ocurrió un error interno en el servidor.", 500)
         return "Error interno", 500
 
     return aplicacion
