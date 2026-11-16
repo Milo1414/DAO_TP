@@ -167,9 +167,6 @@ class Prestamo(db.Model):
         self.multa = multa_validada
         self.estado = Prestamo.ESTADO_DEVUELTO
 
-    def tiene_multa(self):
-        return self.multa > 0
-
 
 class Reserva(db.Model):
     __tablename__ = "reservas"

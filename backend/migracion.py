@@ -162,7 +162,6 @@ def revisar_datos_heredados(conexion):
     isbns = _conjunto(libros, "isbn")
     codigos_ejemplar = _conjunto(ejemplares, "codigo")
     numeros_solicitud = _conjunto(solicitudes, "numero")
-    numeros_reserva = _conjunto(reservas, "numero")
     reservas_por_numero = {}
     for fila in reservas:
         reservas_por_numero[fila["numero"]] = fila

@@ -52,27 +52,9 @@ Puntos para remarcar:
 
 ## 3. Cómo levantarlo
 
-Con la base local (se crea si no existe):
-
-```powershell
-python -m pip install -r requirements.txt
-python main.py
-```
-
-Abrir `http://127.0.0.1:5000`.
-
-Con la base ficticia incluida en el repositorio:
-
-```powershell
-$env:BIBLIOTECA_DB = "biblioteca_demo.db"
-python main.py
-```
-
-Regenerar la base ficticia:
-
-```powershell
-python crear_base_demo.py
-```
+La instalación y el arranque con la base local o la demo están en el
+[README](README.md#ejecución). Para la defensa, usar la base ficticia incluida
+y los casos de la sección 10 de esta guía.
 
 ## 4. Backend archivo por archivo
 
@@ -331,10 +313,6 @@ Es toda la interfaz. Sus partes principales son:
 
 No hay reglas de negocio en el frontend. Si el backend rechaza una operación,
 el error se muestra y se vuelve a consultar el estado real.
-
-### `frontend/__init__.py`
-
-Marca `frontend` como paquete. Está vacío.
 
 ## 6. Cómo se conectan frontend y backend
 

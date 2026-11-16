@@ -113,20 +113,6 @@ alineada con el código y publicar el repositorio.
 - Se agregó la validación de socio ya inhabilitado para que la operación sea
   explícita y no silenciosa.
 
-## Comprobaciones realizadas
-
-| Comprobación | Resultado |
-|---|---|
-| `python -m unittest discover -s tests -v` | 40 pruebas, todas correctas |
-| `python crear_base_demo.py` | base ficticia completa generada con el ORM |
-| `python -c "from backend.app import crear_aplicacion; ..."` | 49 rutas registradas |
-| `node --check frontend/app.js` | sin errores de sintaxis |
-| Prueba de navegador con Playwright | alta de sede, socio, libro, ejemplar, solicitud, entrega, devolución y reporte sin errores de consola |
-| Migración de `biblioteca.db` | respaldo creado y columna agregada |
-| Revisión de datos heredados | sede inválida informada sin modificar |
-| Apertura de `biblioteca_demo.db` | `/api/salud` sin problemas y nueve listados disponibles |
-| Formateo de horario en el navegador | Playwright verificó `08001800` -> `08:00-18:00` sin errores de consola |
-
 ## Cierre de la entrega web
 
 - Se eliminó `demo.py`; la demostración persistente se reemplazó por
@@ -158,17 +144,6 @@ alineada con el código y publicar el repositorio.
 - Los momentos se interpretan como hora local sin zona horaria. Entradas con
   `Z` o desplazamiento se rechazan con HTTP 400 antes de modificar el remito.
 
-Comprobaciones de esta revisión:
-
-| Comprobación | Resultado |
-|---|---|
-| `python -B -m unittest discover -s tests -v` | 56 pruebas correctas, incluidas 16 regresiones nuevas |
-| `node --check frontend/app.js` | sin errores de sintaxis |
-| Generación de la demo en una base temporal | casos completos, revisión sin problemas y `/api/listados` HTTP 200 |
-| `node tests/test_frontend.js` | formulario de recepción, estado observado y envío JSON correctos |
-
-La demo versionada no se reemplaza durante estas comprobaciones.
-
 ## Revisión de documentación, interfaz y consignas
 
 Se revisó el proyecto contra `ENUNCIADO.md` y se mejoró la interfaz sin tocar
@@ -198,16 +173,6 @@ el dominio ni la API.
     el pedido.
 - Documentación: se completaron las listas de archivos de `AGENTS.md`,
   `FASES.md` y `GUIA_DEFENSA.md`, y se registró la cantidad actual de rutas.
-
-Comprobaciones de esta revisión:
-
-| Comprobación | Resultado |
-|---|---|
-| `python -B -m unittest discover -s tests` | 60 pruebas correctas, incluidas las 4 nuevas |
-| `node --check frontend/app.js` | sin errores de sintaxis |
-| `node tests/test_frontend.js` | trayecto del remito, fechas y recepción correctos |
-| Rutas registradas | 48 reglas de URL, 46 bajo `/api` |
-| Navegador (Playwright) sobre una copia de la demo | las nueve secciones cargan; ayuda de solicitud, buscador, empaque y recepción de remitos funcionan; el único error de consola es el HTTP 409 esperado al repetir una sede |
 
 Observaciones que quedan abiertas (no son requisitos obligatorios):
 
@@ -239,12 +204,46 @@ ajustaron tres pruebas que comparaban los textos anteriores; la suite sigue en
 - El sistema no borra sedes, socios, libros ni ejemplares: usa bajas o estados
   para conservar la trazabilidad.
 
+## Limpieza de la revisión final
+
+- Se eliminaron dos métodos sin llamadas (`Prestamo.tiene_multa` y
+  `Remito.numeros_solicitud`) y una colección de números de reserva que no se
+  utilizaba en la revisión de datos heredados.
+- `remito_a_diccionario` siempre incluye el historial, como ya hacían todas
+  sus llamadas; se quitó la opción sin uso para omitirlo.
+- Se quitó `frontend/__init__.py`: la interfaz se sirve como archivos
+  estáticos y no se importa como paquete Python.
+- Se retiró una aserción que comparaba un nombre de reporte consigo mismo;
+  la prueba sigue verificando el tipo de producto creado por cada fábrica.
+- Se centralizaron las instrucciones de ejecución en el README y se quitaron
+  tablas históricas con cantidades de pruebas y rutas desactualizadas.
+
+Comprobaciones ejecutadas después de la limpieza:
+
+| Comprobación | Resultado |
+|---|---|
+| `python -B -m unittest discover -s tests` | 60 pruebas correctas, igual que antes de la limpieza |
+| `node --check frontend/app.js` | sin errores de sintaxis |
+| `node tests/test_frontend.js` | trayecto del remito, fechas y recepción correctos |
+| Demo en una base temporal con el cliente HTTP de Flask | 10 rutas HTTP 200 (página, JS, CSS, salud, listados, historial y cuatro reportes); los nueve remitos conservan su historial |
+| `git diff --check` | sin errores de espacios en los cambios |
+
+### Comprobaciones anteriores conservadas como referencia
+
+- Demo generada en una base temporal: revisión sin problemas y
+  `/api/listados` HTTP 200; la demo versionada no se reemplazó en esa prueba.
+- Migración de la base local: respaldo previo, columna agregada y sede
+  inválida informada sin modificar sus datos.
+- Última revisión de rutas: 48 reglas de URL, 46 bajo `/api`.
+- Navegador con Playwright sobre una copia de la demo: las nueve secciones,
+  el circuito de alta, préstamo y devolución, los reportes, la ayuda de
+  solicitud, el buscador, el empaque y la recepción funcionaron. El HTTP 409
+  al repetir una sede fue el error esperado. También se verificó el formato
+  de horario `08001800` → `08:00-18:00`.
+
 ## Cómo continuar
 
-1. Ejecutar `python main.py`.
-2. Abrir `http://127.0.0.1:5000`.
-3. Usar `python crear_base_demo.py` para regenerar `biblioteca_demo.db`; luego abrirla con `$env:BIBLIOTECA_DB = "biblioteca_demo.db"`.
-4. Ejecutar `python -m unittest discover -s tests -v` antes de cualquier
-   entrega.
-5. Si se modifica el esquema, actualizar `migracion.py` y agregar una prueba
-   específica de migración.
+Las instrucciones de arranque y comprobación están en el
+[README](README.md#ejecución). Antes de entregar, ejecutar las
+[pruebas](README.md#pruebas). Si se modifica el esquema, actualizar
+`migracion.py` y agregar una prueba específica de migración.

@@ -158,7 +158,7 @@ def reserva_a_diccionario(reserva, red):
     }
 
 
-def remito_a_diccionario(remito, incluir_historial=True):
+def remito_a_diccionario(remito):
     asignaciones = []
     for asignacion in remito.asignaciones:
         asignaciones.append({
@@ -167,13 +167,12 @@ def remito_a_diccionario(remito, incluir_historial=True):
             "estado_fisico_recepcion": asignacion.estado_fisico_recepcion,
         })
     historial = []
-    if incluir_historial:
-        for registro in remito.historial:
-            historial.append({
-                "orden": registro.orden,
-                "estado": registro.nombre_estado,
-                "momento": _momento_texto(registro.momento),
-            })
+    for registro in remito.historial:
+        historial.append({
+            "orden": registro.orden,
+            "estado": registro.nombre_estado,
+            "momento": _momento_texto(registro.momento),
+        })
     return {
         "codigo": remito.codigo,
         "sede_origen": remito.sede_origen,

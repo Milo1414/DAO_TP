@@ -44,7 +44,6 @@ class PruebaFactory(PruebaBase):
         for fabrica, clase in casos:
             reporte = fabrica.crear_reporte()
             self.assertIsInstance(reporte, clase)
-            self.assertEqual(reporte.nombre(), reporte.nombre())
 
     def test_reportes_vacios(self):
         fabricas = (

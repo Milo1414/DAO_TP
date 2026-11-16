@@ -146,13 +146,6 @@ class Remito(db.Model):
             codigos.append(asignacion.ejemplar_codigo)
         return codigos
 
-    def numeros_solicitud(self):
-        numeros = []
-        for asignacion in self.asignaciones:
-            if asignacion.numero_solicitud is not None:
-                numeros.append(asignacion.numero_solicitud)
-        return numeros
-
     def _validar_cronologia(self, momento):
         if len(self.historial) > 0:
             ultimo_momento = self.historial[len(self.historial) - 1].momento
