@@ -1,4 +1,6 @@
 # Solicitudes, prestamos y reservas.
+import math
+
 from backend.errores import ErrorDatosInvalidos
 from backend.modelos import db
 from backend.validaciones import (
@@ -44,6 +46,20 @@ class SolicitudPrestamo(db.Model):
 
     def es_interbibliotecaria(self):
         return self.tipo == SolicitudPrestamo.TIPO_INTERBIBLIOTECARIO
+
+    def validar_datos(self):
+        validar_entero(self.numero, "numero de solicitud", 1)
+        validar_entero(self.socio_numero, "numero de socio", 1)
+        validar_codigo(self.libro_isbn, "ISBN")
+        validar_codigo(self.ejemplar_codigo, "codigo de ejemplar")
+        validar_codigo(self.sede_origen, "sede de origen")
+        validar_codigo(self.sede_destino, "sede de destino")
+        validar_fecha(self.fecha_solicitud, "fecha de solicitud")
+        validar_tipo_solicitud(self.tipo)
+        if self.estado not in (self.ESTADO_PENDIENTE, self.ESTADO_ENTREGADA, self.ESTADO_CANCELADA):
+            raise ErrorDatosInvalidos("Estado de solicitud desconocido.")
+        if (self.tipo == self.TIPO_LOCAL) != (self.sede_origen == self.sede_destino):
+            raise ErrorDatosInvalidos("El tipo de solicitud no coincide con sus sedes.")
 
     def marcar_entregada(self):
         self.estado = SolicitudPrestamo.ESTADO_ENTREGADA
@@ -93,6 +109,31 @@ class Prestamo(db.Model):
     def esta_activo(self):
         return self.estado == Prestamo.ESTADO_ACTIVO
 
+    def validar_datos(self):
+        validar_entero(self.numero, "numero de prestamo", 1)
+        validar_entero(self.solicitud_numero, "numero de solicitud", 1)
+        validar_entero(self.socio_numero, "numero de socio", 1)
+        validar_codigo(self.ejemplar_codigo, "codigo de ejemplar")
+        validar_codigo(self.sede_origen, "sede de origen")
+        validar_codigo(self.sede_destino, "sede de destino")
+        validar_fecha(self.fecha_prestamo, "fecha de prestamo")
+        validar_fecha(self.fecha_vencimiento, "fecha de vencimiento")
+        if self.fecha_vencimiento < self.fecha_prestamo:
+            raise ErrorDatosInvalidos("El vencimiento no puede ser anterior al prestamo.")
+        if self.estado not in (self.ESTADO_ACTIVO, self.ESTADO_DEVUELTO):
+            raise ErrorDatosInvalidos("Estado de prestamo desconocido.")
+        if not isinstance(self.multa, (int, float)) or not math.isfinite(self.multa) or self.multa < 0:
+            raise ErrorDatosInvalidos("La multa debe ser un numero finito no negativo.")
+        if self.estado == self.ESTADO_DEVUELTO:
+            validar_fecha(self.fecha_devolucion, "fecha de devolucion")
+            validar_codigo(self.sede_devolucion, "sede de devolucion")
+            validar_estado_fisico(self.estado_fisico_devolucion)
+            if self.fecha_devolucion < self.fecha_prestamo:
+                raise ErrorDatosInvalidos("La devolucion no puede ser anterior al prestamo.")
+        elif (self.fecha_devolucion is not None or self.sede_devolucion is not None or
+              self.estado_fisico_devolucion is not None or self.multa != 0):
+            raise ErrorDatosInvalidos("Un prestamo activo no puede tener datos de devolucion.")
+
     def esta_vencido(self, fecha_referencia):
         if self.estado != Prestamo.ESTADO_ACTIVO:
             return False
@@ -110,17 +151,20 @@ class Prestamo(db.Model):
         return multa
 
     def registrar_devolucion(self, fecha_devolucion, sede_devolucion, estado_fisico, multa):
+        if self.esta_activo() == False:
+            raise ErrorDatosInvalidos("El prestamo ya fue devuelto.")
         fecha_validada = validar_fecha(fecha_devolucion, "fecha de devolucion")
         sede_validada = validar_codigo(sede_devolucion, "sede de devolucion")
         estado_validado = validar_estado_fisico(estado_fisico)
         if fecha_validada < self.fecha_prestamo:
             raise ErrorDatosInvalidos("La fecha de devolucion no puede ser anterior a la fecha de prestamo.")
-        if multa < 0:
-            raise ErrorDatosInvalidos("La multa no puede ser negativa.")
+        if not isinstance(multa, (int, float)) or not math.isfinite(multa) or multa < 0:
+            raise ErrorDatosInvalidos("La multa debe ser un numero finito no negativo.")
+        multa_validada = float(multa)
         self.fecha_devolucion = fecha_validada
         self.sede_devolucion = sede_validada
         self.estado_fisico_devolucion = estado_validado
-        self.multa = float(multa)
+        self.multa = multa_validada
         self.estado = Prestamo.ESTADO_DEVUELTO
 
     def tiene_multa(self):
@@ -156,6 +200,21 @@ class Reserva(db.Model):
 
     def esta_pendiente(self):
         return self.estado == Reserva.ESTADO_PENDIENTE
+
+    def validar_datos(self):
+        validar_entero(self.numero, "numero de reserva", 1)
+        validar_entero(self.socio_numero, "numero de socio", 1)
+        validar_codigo(self.libro_isbn, "ISBN")
+        validar_codigo(self.codigo_sede, "sede de reserva")
+        validar_fecha(self.fecha_reserva, "fecha de reserva")
+        estados_validos = (self.ESTADO_PENDIENTE, self.ESTADO_ASIGNADA,
+                           self.ESTADO_CUMPLIDA, self.ESTADO_CANCELADA)
+        if self.estado not in estados_validos:
+            raise ErrorDatosInvalidos("Estado de reserva desconocido.")
+        if self.estado in (self.ESTADO_ASIGNADA, self.ESTADO_CUMPLIDA):
+            validar_codigo(self.ejemplar_codigo, "ejemplar de reserva")
+        if self.estado == self.ESTADO_CUMPLIDA:
+            validar_entero(self.solicitud_numero, "solicitud de reserva", 1)
 
     def esta_activa(self):
         return self.estado == Reserva.ESTADO_PENDIENTE or self.estado == Reserva.ESTADO_ASIGNADA

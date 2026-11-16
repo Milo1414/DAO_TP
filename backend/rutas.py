@@ -504,7 +504,8 @@ def despachar_remito(codigo):
 @api.post("/remitos/<codigo>/recibir")
 def recibir_remito(codigo):
     datos = leer_json()
-    remito = red.recibir_remito(codigo, obtener_momento_opcional(datos, "momento"))
+    estado_fisico = obtener_texto(datos, "estado_fisico")
+    remito = red.recibir_remito(codigo, obtener_momento_opcional(datos, "momento"), estado_fisico)
     return respuesta(remito_a_diccionario(remito), "Remito recibido.")
 
 

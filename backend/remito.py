@@ -10,7 +10,13 @@ from abc import ABC, abstractmethod
 
 from backend.errores import ErrorDatosInvalidos
 from backend.modelos import db
-from backend.validaciones import validar_codigo, validar_entero, validar_momento
+from backend.validaciones import (
+    validar_codigo,
+    validar_entero,
+    validar_estado_fisico,
+    validar_historial_remito,
+    validar_momento,
+)
 
 
 class ObservadorRemito(ABC):
@@ -33,6 +39,7 @@ class Remito(db.Model):
     ESTADO_EMPAQUETADO = "empaquetado"
     ESTADO_DESPACHADO = "despachado"
     ESTADO_RECIBIDO = "recibido"
+    ESTADO_CANCELADO = "cancelado"
 
     MOTIVO_PRESTAMO = "prestamo"
     MOTIVO_RETORNO = "retorno"
@@ -107,6 +114,22 @@ class Remito(db.Model):
 
     def nombre_estado(self):
         return self.estado_actual
+
+    def validar_datos(self):
+        validar_codigo(self.codigo, "codigo de remito")
+        validar_codigo(self.sede_origen, "sede de origen")
+        validar_codigo(self.sede_destino, "sede de destino")
+        if self.sede_origen == self.sede_destino:
+            raise ErrorDatosInvalidos("Las sedes del remito deben ser distintas.")
+        if self.motivo not in (self.MOTIVO_PRESTAMO, self.MOTIVO_RETORNO):
+            raise ErrorDatosInvalidos("Motivo de remito desconocido.")
+        eventos = []
+        for registro in self.historial:
+            registro.validar_datos()
+            eventos.append((registro.orden, registro.nombre_estado, registro.momento))
+        validar_historial_remito(self.fecha_creacion, self.estado_actual, eventos)
+        for asignacion in self.asignaciones:
+            asignacion.validar_datos()
 
     def es_retorno(self):
         return self.motivo == Remito.MOTIVO_RETORNO
@@ -183,6 +206,13 @@ class Remito(db.Model):
         self.estado_actual = Remito.ESTADO_RECIBIDO
         self.notificar(self.estado_actual, momento)
 
+    def cancelar(self, momento=None):
+        if self.estado_actual not in (Remito.ESTADO_PENDIENTE_EMPAQUE, Remito.ESTADO_EMPAQUETADO):
+            raise ErrorDatosInvalidos("Solo se puede cancelar un remito antes del despacho.")
+        momento = self._preparar_transicion(momento, "momento de cancelacion")
+        self.estado_actual = Remito.ESTADO_CANCELADO
+        self.notificar(self.estado_actual, momento)
+
     def agregar_ejemplar(self, codigo_ejemplar, numero_solicitud):
         # Un remito de prestamo transporta la copia de una sola solicitud.
         if len(self.asignaciones) > 0:
@@ -222,6 +252,14 @@ class RemitoEjemplar(db.Model):
         self.numero_solicitud = numero_solicitud
         self.estado_fisico_recepcion = estado_fisico_recepcion
 
+    def validar_datos(self):
+        validar_codigo(self.remito_codigo, "codigo de remito")
+        validar_codigo(self.ejemplar_codigo, "codigo de ejemplar")
+        if self.numero_solicitud is not None:
+            validar_entero(self.numero_solicitud, "numero de solicitud", 1)
+        if self.estado_fisico_recepcion is not None:
+            validar_estado_fisico(self.estado_fisico_recepcion)
+
 
 class RemitoHistorial(db.Model):
     __tablename__ = "remito_historial"
@@ -237,3 +275,10 @@ class RemitoHistorial(db.Model):
         self.orden = orden
         self.nombre_estado = nombre_estado
         self.momento = momento
+
+    def validar_datos(self):
+        validar_codigo(self.remito_codigo, "codigo de remito")
+        validar_entero(self.orden, "orden del historial", 0)
+        if self.nombre_estado not in ("pendiente_empaque", "empaquetado", "despachado", "recibido", "cancelado"):
+            raise ErrorDatosInvalidos("Estado del historial desconocido.")
+        validar_momento(self.momento, "momento del historial")

@@ -225,6 +225,7 @@ class PruebaInterbibliotecaria(PruebaBase):
 
         respuesta = self.pedir("POST", "/api/remitos/" + remito["codigo"] + "/recibir", {
             "momento": "2026-01-10T13:00:00",
+            "estado_fisico": "bueno",
         })
         self.assertEqual(respuesta.status_code, 200)
         respuesta = self.pedir("GET", "/api/ejemplares/E2")
@@ -267,6 +268,7 @@ class PruebaInterbibliotecaria(PruebaBase):
         self.assertEqual(respuesta.status_code, 200)
         respuesta = self.pedir("POST", "/api/remitos/" + retorno["codigo"] + "/recibir", {
             "momento": "2026-01-21T12:00:00",
+            "estado_fisico": "requiere_reparacion",
         })
         self.assertEqual(respuesta.status_code, 200)
         respuesta = self.pedir("GET", "/api/ejemplares/E2")

@@ -119,7 +119,8 @@ def crear_casos_locales(red):
 def mover_remito_hasta_recibir(red, remito, momento):
     red.empaquetar_remito(remito.codigo, momento)
     red.despachar_remito(remito.codigo, momento + datetime.timedelta(hours=1))
-    red.recibir_remito(remito.codigo, momento + datetime.timedelta(hours=2))
+    ejemplar = red.buscar_ejemplar(remito.asignaciones[0].ejemplar_codigo)
+    red.recibir_remito(remito.codigo, momento + datetime.timedelta(hours=2), ejemplar.estado_fisico)
 
 
 def crear_casos_interbibliotecarios(red):

@@ -44,3 +44,10 @@ class Sede(db.Model):
 
     def esta_activa(self):
         return self.activa
+
+    def validar_datos(self):
+        validar_codigo(self.codigo, "codigo de sede")
+        validar_texto(self.nombre, "nombre de sede")
+        validar_texto(self.direccion, "direccion de sede")
+        validar_telefono(self.telefono, "telefono de sede")
+        validar_horario(self.horario, "horario de sede")

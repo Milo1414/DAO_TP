@@ -27,6 +27,7 @@ const NOMBRES_ESTADO = {
     pendiente: "Pendiente",
     entregada: "Entregada",
     cancelada: "Cancelada",
+    cancelado: "Cancelado",
     activo: "Activo",
     devuelto: "Devuelto",
     asignada: "Asignada",
@@ -69,6 +70,7 @@ const ETIQUETAS_REPORTE = {
     retornos: "Retornos",
     recibidos: "Recibidos",
     pendientes: "Pendientes",
+    cancelados: "Cancelados",
     copias_danadas_recepcion: "Copias danadas al recibir",
     tasa_exito: "Tasa de exito",
     promedio_horas_transito: "Horas de transito",
@@ -860,8 +862,12 @@ function renderRemitos() {
             html += '<button class="boton secundario pequeno" type="button" data-accion="despachar-remito" data-codigo="' +
                 esc(remito.codigo) + '">Despachar</button>';
         } else if (remito.estado_actual === "despachado") {
-            html += '<button class="boton secundario pequeno" type="button" data-accion="recibir-remito" data-codigo="' +
-                esc(remito.codigo) + '">Recibir</button>';
+            html += '<form data-form="recepcion" class="acciones-formulario">';
+            html += '<input type="hidden" name="codigo" value="' + esc(remito.codigo) + '">';
+            html += '<select name="estado_fisico" required aria-label="Estado fisico al recibir">';
+            html += '<option value="">Estado observado...</option><option value="bueno">Bueno</option>';
+            html += '<option value="deteriorado">Deteriorado</option><option value="requiere_reparacion">Requiere reparacion</option></select>';
+            html += '<button class="boton secundario pequeno" type="submit">Recibir</button></form>';
         }
         html += "</div>";
         html += '<details class="detalle-remito"><summary>Historial</summary><ul>';
@@ -1194,6 +1200,14 @@ async function manejarFormulario(formulario) {
         return;
     }
 
+    if (tipo === "recepcion") {
+        await pedir("POST", "/remitos/" + encodeURIComponent(datos.codigo) + "/recibir", {
+            estado_fisico: datos.estado_fisico,
+        });
+        await refrescar("Remito recibido.");
+        return;
+    }
+
     if (tipo === "reporte") {
         estado.filtrosReporte = datos;
         await cargarReporte(estado.reporte);
@@ -1293,9 +1307,5 @@ async function manejarAccion(accion, datos) {
         await pedir("POST", "/remitos/" + encodeURIComponent(datos.codigo) + "/despachar", {});
         await refrescar("Remito despachado.");
         return;
-    }
-    if (accion === "recibir-remito") {
-        await pedir("POST", "/remitos/" + encodeURIComponent(datos.codigo) + "/recibir", {});
-        await refrescar("Remito recibido.");
     }
 }

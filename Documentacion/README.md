@@ -143,7 +143,7 @@ Todas las rutas de negocio se publican bajo `/api` y devuelven JSON.
 |---|---|---|
 | GET/POST | `/api/solicitudes` | Listar o registrar solicitudes; acepta `estado` como filtro |
 | GET | `/api/solicitudes/<numero>` | Consultar una solicitud |
-| POST | `/api/solicitudes/<numero>/cancelar` | Cancelar una solicitud pendiente |
+| POST | `/api/solicitudes/<numero>/cancelar` | Cancelar una solicitud pendiente antes del despacho o tras la recepción |
 | POST | `/api/solicitudes/<numero>/entregar` | Entregar y crear el préstamo |
 | GET/POST | `/api/reservas` | Listar o registrar reservas |
 | POST | `/api/reservas/<numero>/cancelar` | Cancelar una reserva activa |
@@ -162,7 +162,17 @@ Todas las rutas de negocio se publican bajo `/api` y devuelven JSON.
 | POST | `/api/remitos/retorno` | Crear remito de retorno para una copia pendiente |
 | POST | `/api/remitos/<codigo>/empaquetar` | Pasar a empaquetado |
 | POST | `/api/remitos/<codigo>/despachar` | Pasar a despachado y poner las copias en tránsito |
-| POST | `/api/remitos/<codigo>/recibir` | Recibir en destino y registrar el estado físico |
+| POST | `/api/remitos/<codigo>/recibir` | Recibir en destino; exige `estado_fisico` observado |
+
+La recepción recibe, por ejemplo:
+
+```json
+{"estado_fisico": "bueno", "momento": "2026-11-16T10:00:00"}
+```
+
+`estado_fisico` admite `bueno`, `deteriorado` o `requiere_reparacion`.
+`momento` es opcional; se usa la hora local si se omite. Los momentos con
+zona horaria (`Z` o un desplazamiento como `+00:00`) se rechazan con HTTP 400.
 
 ### Reportes
 
@@ -190,6 +200,12 @@ Los errores se devuelven con un código HTTP y un cuerpo como
 - Una solicitud aparta la copia desde su registro y no permite que otra
   solicitud la use.
 - El préstamo interbibliotecario necesita un remito recibido antes de la entrega.
+- Antes del despacho, cancelar la solicitud cancela también el remito y libera
+  la copia. En tránsito se espera la recepción. Después de recibir, cancelar la
+  solicitud deja la copia pendiente de retorno, aunque nunca se haya prestado.
+- Las nuevas solicitudes y entregas no pueden ser anteriores a la última
+  devolución o recepción del ejemplar. Una solicitud que usa una reserva no
+  puede ser anterior a esa reserva.
 - La reserva es por libro y sede; la cola es FIFO y solo asigna copias
   prestables de esa sede.
 - Una devolución fuera de la sede de pertenencia deja la copia pendiente de
@@ -197,6 +213,11 @@ Los errores se devuelven con un código HTTP y un cuerpo como
 - Una copia dañada no vuelve a estar disponible hasta que se repara.
 - Empaquetar, despachar y recibir son estados consecutivos; una transición
   inválida no cambia el estado ni agrega historial.
+- El remito puede terminar `cancelado` antes del despacho y conserva todos sus
+  eventos. Los reportes cuentan esos remitos por separado de los pendientes.
+- La recepción guarda la revisión física informada. Si un envío de préstamo
+  llega requiriendo reparación, se cancela la solicitud y se permite retornar
+  la copia; al recibir el retorno dañado queda en reparación.
 - El plazo de préstamo es de 14 días y la multa de 100 pesos por día de atraso;
   ambos valores se guardan en la tabla `configuracion`.
 
@@ -227,13 +248,19 @@ algo falla, no cambia el estado ni el historial.
      un respaldo `.respaldo-AAAA...` y agrega la columna;
   3. siembra la configuración que falte;
   4. revisa los datos heredados y los informa en `/api/salud` sin corregirlos.
-- Una base heredada con datos inválidos sigue funcionando, pero el problema
-  queda visible para que una persona lo resuelva.
+- La revisión comprueba también la secuencia y cronología del historial,
+  vencimientos y devoluciones, préstamos superpuestos y coherencia de relaciones.
+- Las entidades recuperadas por `RedBibliotecas` validan sus datos antes de
+  utilizarse. Una consulta con datos de dominio inválidos devuelve HTTP 400.
+  `/api/salud` sigue disponible con las observaciones de la revisión inicial;
+  los datos originales se conservan para su corrección explícita.
 
 ## Pruebas
 
 ```powershell
 python -m unittest discover -s tests -v
+node --check frontend/app.js
+node tests/test_frontend.js
 ```
 
 La suite usa bases SQLite temporales. Cubre la API, las reglas de préstamo y

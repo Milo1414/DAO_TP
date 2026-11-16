@@ -18,8 +18,9 @@
 # - Sede dada de baja: no permite iniciar solicitudes, reservas, remitos
 #   ni despachos con esa sede, pero conserva el historial y permite
 #   registrar la recepcion de un envio que ya salio.
-# - Cancelar una solicitud entregada o con remito se rechaza. Reparar solo
-#   vale sobre copias en reparacion, sin prestamo, envio ni asignacion.
+# - Una solicitud con remito se cancela antes del despacho o tras recibirlo.
+#   Si ya llego, la copia queda pendiente de retorno. En transito se espera
+#   la recepcion; una solicitud entregada no se cancela.
 # - Si una operacion se rechaza, no cambia estados ni consume identificadores.
 import datetime
 import math
@@ -54,37 +55,47 @@ class RedBibliotecas:
 
     # ---------- Colecciones consultadas desde el ORM ----------
 
+    def _validar_coleccion(self, objetos):
+        for objeto in objetos:
+            objeto.validar_datos()
+        return objetos
+
+    def _validar_recuperado(self, objeto):
+        if objeto is not None:
+            objeto.validar_datos()
+        return objeto
+
     @property
     def sedes(self):
-        return Sede.query.order_by(Sede.codigo).all()
+        return self._validar_coleccion(Sede.query.order_by(Sede.codigo).all())
 
     @property
     def socios(self):
-        return Socio.query.order_by(Socio.numero).all()
+        return self._validar_coleccion(Socio.query.order_by(Socio.numero).all())
 
     @property
     def libros(self):
-        return Libro.query.order_by(Libro.isbn).all()
+        return self._validar_coleccion(Libro.query.order_by(Libro.isbn).all())
 
     @property
     def ejemplares(self):
-        return Ejemplar.query.order_by(Ejemplar.codigo).all()
+        return self._validar_coleccion(Ejemplar.query.order_by(Ejemplar.codigo).all())
 
     @property
     def solicitudes(self):
-        return SolicitudPrestamo.query.order_by(SolicitudPrestamo.numero).all()
+        return self._validar_coleccion(SolicitudPrestamo.query.order_by(SolicitudPrestamo.numero).all())
 
     @property
     def prestamos(self):
-        return Prestamo.query.order_by(Prestamo.numero).all()
+        return self._validar_coleccion(Prestamo.query.order_by(Prestamo.numero).all())
 
     @property
     def reservas(self):
-        return Reserva.query.order_by(Reserva.numero).all()
+        return self._validar_coleccion(Reserva.query.order_by(Reserva.numero).all())
 
     @property
     def remitos(self):
-        return Remito.query.order_by(Remito.codigo).all()
+        return self._validar_coleccion(Remito.query.order_by(Remito.codigo).all())
 
     # ---------- Configuracion persistente ----------
 
@@ -180,28 +191,28 @@ class RedBibliotecas:
     # ---------- Busquedas ----------
 
     def buscar_sede(self, codigo):
-        return db.session.get(Sede, codigo)
+        return self._validar_recuperado(db.session.get(Sede, codigo))
 
     def buscar_socio(self, numero):
-        return db.session.get(Socio, numero)
+        return self._validar_recuperado(db.session.get(Socio, numero))
 
     def buscar_libro(self, isbn):
-        return db.session.get(Libro, isbn)
+        return self._validar_recuperado(db.session.get(Libro, isbn))
 
     def buscar_ejemplar(self, codigo):
-        return db.session.get(Ejemplar, codigo)
+        return self._validar_recuperado(db.session.get(Ejemplar, codigo))
 
     def buscar_solicitud(self, numero):
-        return db.session.get(SolicitudPrestamo, numero)
+        return self._validar_recuperado(db.session.get(SolicitudPrestamo, numero))
 
     def buscar_prestamo(self, numero):
-        return db.session.get(Prestamo, numero)
+        return self._validar_recuperado(db.session.get(Prestamo, numero))
 
     def buscar_reserva(self, numero):
-        return db.session.get(Reserva, numero)
+        return self._validar_recuperado(db.session.get(Reserva, numero))
 
     def buscar_remito(self, codigo):
-        return db.session.get(Remito, codigo)
+        return self._validar_recuperado(db.session.get(Remito, codigo))
 
     def buscar_remito_por_solicitud(self, numero_solicitud):
         for remito in self.remitos:
@@ -302,20 +313,24 @@ class RedBibliotecas:
             raise ErrorNoEncontrado("No existe el socio: " + str(numero))
         if socio.esta_habilitado() == False:
             raise ErrorConflicto("El socio ya esta inhabilitado: " + str(numero))
-        socio.inhabilitar()
-        pares_revisados = []
-        for reserva in self.reservas:
-            if reserva.socio_numero != numero:
-                continue
-            if reserva.esta_activa() == False:
-                continue
-            par = (reserva.libro_isbn, reserva.codigo_sede)
-            if par in pares_revisados:
-                continue
-            pares_revisados.append(par)
-            self.revisar_reservas_asignadas(reserva.libro_isbn, reserva.codigo_sede)
-            self.atender_cola_reservas(reserva.libro_isbn, reserva.codigo_sede)
-        self._confirmar()
+        try:
+            socio.inhabilitar()
+            pares_revisados = []
+            for reserva in self.reservas:
+                if reserva.socio_numero != numero:
+                    continue
+                if reserva.esta_activa() == False:
+                    continue
+                par = (reserva.libro_isbn, reserva.codigo_sede)
+                if par in pares_revisados:
+                    continue
+                pares_revisados.append(par)
+                self.revisar_reservas_asignadas(reserva.libro_isbn, reserva.codigo_sede)
+                self.atender_cola_reservas(reserva.libro_isbn, reserva.codigo_sede)
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return socio
 
     def habilitar_socio(self, numero):
@@ -385,13 +400,16 @@ class RedBibliotecas:
             raise ErrorConflicto("No se puede reparar un ejemplar en envio.")
         if ejemplar.solicitud_asignada is not None or ejemplar.reserva_asignada is not None:
             raise ErrorConflicto("No se puede reparar un ejemplar asignado.")
-        ejemplar.reparar()
-        if ejemplar.ubicacion_actual != ejemplar.sede_pertenencia:
-            # Una copia reparada fuera de su sede sigue teniendo que volver.
-            ejemplar.marcar_pendiente_retorno()
-        elif ejemplar.ubicacion_actual is not None:
-            self.atender_cola_reservas(ejemplar.libro_isbn, ejemplar.ubicacion_actual)
-        self._confirmar()
+        try:
+            ejemplar.reparar()
+            if ejemplar.ubicacion_actual != ejemplar.sede_pertenencia:
+                ejemplar.marcar_pendiente_retorno()
+            elif ejemplar.ubicacion_actual is not None:
+                self.atender_cola_reservas(ejemplar.libro_isbn, ejemplar.ubicacion_actual)
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return ejemplar
 
     def prestamo_activo_por_ejemplar(self, codigo_ejemplar):
@@ -402,7 +420,7 @@ class RedBibliotecas:
 
     def remito_activo_por_ejemplar(self, codigo_ejemplar):
         for remito in self.remitos:
-            if remito.nombre_estado() == Remito.ESTADO_RECIBIDO:
+            if remito.nombre_estado() in (Remito.ESTADO_RECIBIDO, Remito.ESTADO_CANCELADO):
                 continue
             for asignacion in remito.asignaciones:
                 if asignacion.ejemplar_codigo == codigo_ejemplar:
@@ -470,6 +488,18 @@ class RedBibliotecas:
 
     # ---------- Solicitudes y prestamos ----------
 
+    def validar_fecha_de_ejemplar(self, ejemplar, fecha):
+        ultima = self.ultima_devolucion_de_ejemplar(ejemplar.codigo)
+        if ultima is not None and fecha < ultima.fecha_devolucion:
+            raise ErrorDatosInvalidos("La operacion no puede ser anterior a la ultima devolucion del ejemplar.")
+        for remito in self.remitos:
+            recepcion = remito.fecha_de(Remito.ESTADO_RECIBIDO)
+            if recepcion is None:
+                continue
+            if ejemplar.codigo in remito.codigos_ejemplares():
+                if fecha < self.a_fecha(recepcion):
+                    raise ErrorDatosInvalidos("La operacion no puede ser anterior a la ultima recepcion del ejemplar.")
+
     def registrar_solicitud(self, socio_numero, libro_isbn, ejemplar_codigo,
                             sede_origen, sede_destino, fecha_solicitud, tipo):
         tipo_validado = validar_tipo_solicitud(tipo)
@@ -496,6 +526,7 @@ class RedBibliotecas:
             raise ErrorConflicto("El ejemplar esta danado y necesita reparacion.")
         if ejemplar.solicitud_asignada is not None:
             raise ErrorConflicto("El ejemplar ya esta asignado a una solicitud.")
+        self.validar_fecha_de_ejemplar(ejemplar, fecha_validada)
 
         reserva_asignada = None
         if ejemplar.esta_disponible():
@@ -512,6 +543,8 @@ class RedBibliotecas:
                 raise ErrorConflicto("El ejemplar esta apartado para otra reserva.")
             if candidata.libro_isbn != libro_isbn or candidata.codigo_sede != sede_destino:
                 raise ErrorConflicto("El ejemplar esta apartado para otra reserva.")
+            if fecha_validada < candidata.fecha_reserva:
+                raise ErrorDatosInvalidos("La solicitud no puede ser anterior a su reserva.")
             reserva_asignada = candidata
         else:
             raise ErrorConflicto("El ejemplar no esta disponible.")
@@ -549,6 +582,8 @@ class RedBibliotecas:
         ejemplar = self.buscar_ejemplar(solicitud.ejemplar_codigo)
         if ejemplar is None:
             raise ErrorNoEncontrado("No existe el ejemplar de la solicitud.")
+        if ejemplar.libro_isbn != solicitud.libro_isbn or ejemplar.sede_pertenencia != solicitud.sede_origen:
+            raise ErrorDatosInvalidos("El ejemplar no coincide con el libro y origen de la solicitud.")
         if ejemplar.solicitud_asignada != numero_solicitud:
             raise ErrorConflicto("El ejemplar no esta asignado a esta solicitud.")
         if ejemplar.esta_apartado() == False:
@@ -557,6 +592,7 @@ class RedBibliotecas:
             raise ErrorConflicto("El ejemplar esta danado y necesita reparacion.")
         if fecha_validada < solicitud.fecha_solicitud:
             raise ErrorDatosInvalidos("La entrega no puede ser anterior a la solicitud.")
+        self.validar_fecha_de_ejemplar(ejemplar, fecha_validada)
         if solicitud.es_interbibliotecaria():
             remito = self.buscar_remito_por_solicitud(numero_solicitud)
             if remito is None:
@@ -573,10 +609,6 @@ class RedBibliotecas:
                 raise ErrorConflicto("El ejemplar no se encuentra en la sede del prestamo.")
 
         reserva = self.buscar_reserva_por_solicitud(numero_solicitud)
-        ejemplar.marcar_prestado()
-        solicitud.marcar_entregada()
-        if reserva is not None:
-            reserva.marcar_cumplida()
         dias = datetime.timedelta(days=self.plazo_dias)
         vencimiento = fecha_validada + dias
         numero = self._siguiente_numero(Prestamo)
@@ -585,8 +617,16 @@ class RedBibliotecas:
             solicitud.ejemplar_codigo, solicitud.sede_origen,
             solicitud.sede_destino, fecha_validada, vencimiento,
         )
-        db.session.add(prestamo)
-        self._confirmar()
+        try:
+            ejemplar.marcar_prestado()
+            solicitud.marcar_entregada()
+            if reserva is not None:
+                reserva.marcar_cumplida()
+            db.session.add(prestamo)
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return prestamo
 
     def cancelar_solicitud(self, numero_solicitud):
@@ -595,20 +635,36 @@ class RedBibliotecas:
             raise ErrorNoEncontrado("No existe la solicitud: " + str(numero_solicitud))
         if solicitud.estado != SolicitudPrestamo.ESTADO_PENDIENTE:
             raise ErrorConflicto("Solo se puede cancelar una solicitud pendiente.")
-        if self.buscar_remito_por_solicitud(numero_solicitud) is not None:
-            raise ErrorConflicto("La solicitud ya tiene remito y no se puede cancelar.")
+        remito = self.buscar_remito_por_solicitud(numero_solicitud)
+        if remito is not None and remito.nombre_estado() == Remito.ESTADO_DESPACHADO:
+            raise ErrorConflicto("El envio esta en transito: reciba el remito antes de cancelar la solicitud.")
         ejemplar = self.buscar_ejemplar(solicitud.ejemplar_codigo)
-        if ejemplar is not None and ejemplar.solicitud_asignada == numero_solicitud:
-            if ejemplar.reserva_asignada is not None:
-                reserva = self.buscar_reserva(ejemplar.reserva_asignada)
-                if reserva is not None:
-                    reserva.solicitud_numero = None
-                ejemplar.solicitud_asignada = None
-            else:
-                ejemplar.liberar_asignacion()
-                self.atender_cola_reservas(ejemplar.libro_isbn, ejemplar.ubicacion_actual)
-        solicitud.cancelar()
-        self._confirmar()
+        if remito is not None and remito.nombre_estado() == Remito.ESTADO_RECIBIDO:
+            try:
+                solicitud.cancelar()
+                ejemplar.marcar_pendiente_retorno()
+                self._confirmar()
+            except Exception:
+                db.session.rollback()
+                raise
+            return solicitud
+        try:
+            if remito is not None and remito.nombre_estado() != Remito.ESTADO_CANCELADO:
+                remito.cancelar()
+            if ejemplar is not None and ejemplar.solicitud_asignada == numero_solicitud:
+                if ejemplar.reserva_asignada is not None:
+                    reserva = self.buscar_reserva(ejemplar.reserva_asignada)
+                    if reserva is not None:
+                        reserva.solicitud_numero = None
+                    ejemplar.solicitud_asignada = None
+                else:
+                    ejemplar.liberar_asignacion()
+                    self.atender_cola_reservas(ejemplar.libro_isbn, ejemplar.ubicacion_actual)
+            solicitud.cancelar()
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return solicitud
 
     # ---------- Reservas ----------
@@ -628,9 +684,13 @@ class RedBibliotecas:
                 raise ErrorConflicto("Ya existe una reserva activa igual.")
         numero = self._siguiente_numero(Reserva)
         reserva = Reserva(numero, socio_numero, libro_isbn, codigo_sede, fecha_validada)
-        db.session.add(reserva)
-        self.atender_cola_reservas(libro_isbn, codigo_sede)
-        self._confirmar()
+        try:
+            db.session.add(reserva)
+            self.atender_cola_reservas(libro_isbn, codigo_sede)
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return reserva
 
     def cancelar_reserva(self, numero_reserva):
@@ -643,13 +703,17 @@ class RedBibliotecas:
             raise ErrorConflicto("La reserva ya tiene una solicitud asociada: resuelva primero la solicitud.")
         if reserva.esta_asignada():
             ejemplar = self.buscar_ejemplar(reserva.ejemplar_codigo)
-            if ejemplar is not None and ejemplar.reserva_asignada == numero_reserva:
-                if ejemplar.solicitud_asignada is None:
-                    ejemplar.liberar_asignacion()
-            reserva.ejemplar_codigo = None
-            reserva.cancelar()
-            self.atender_cola_reservas(reserva.libro_isbn, reserva.codigo_sede)
-            self._confirmar()
+            try:
+                if ejemplar is not None and ejemplar.reserva_asignada == numero_reserva:
+                    if ejemplar.solicitud_asignada is None:
+                        ejemplar.liberar_asignacion()
+                reserva.ejemplar_codigo = None
+                reserva.cancelar()
+                self.atender_cola_reservas(reserva.libro_isbn, reserva.codigo_sede)
+                self._confirmar()
+            except Exception:
+                db.session.rollback()
+                raise
             return reserva
         reserva.cancelar()
         self._confirmar()
@@ -739,20 +803,21 @@ class RedBibliotecas:
         if ejemplar is None:
             raise ErrorNoEncontrado("No existe el ejemplar del prestamo.")
         multa = prestamo.multa_acumulada(fecha_validada, self.multa_por_dia)
-        prestamo.registrar_devolucion(fecha_validada, sede_devolucion, estado_fisico, multa)
-        ejemplar.mover_a(sede_devolucion)
-        ejemplar.registrar_revision_fisica(estado_fisico)
-        if ejemplar.ubicacion_actual != ejemplar.sede_pertenencia:
-            ejemplar.marcar_pendiente_retorno()
+        try:
+            prestamo.registrar_devolucion(fecha_validada, sede_devolucion, estado_fisico, multa)
+            ejemplar.mover_a(sede_devolucion)
+            ejemplar.registrar_revision_fisica(estado_fisico)
+            if ejemplar.ubicacion_actual != ejemplar.sede_pertenencia:
+                ejemplar.marcar_pendiente_retorno()
+            elif ejemplar.esta_danado():
+                ejemplar.marcar_en_reparacion()
+            else:
+                ejemplar.marcar_disponible()
+                self.atender_cola_reservas(ejemplar.libro_isbn, sede_devolucion)
             self._confirmar()
-            return prestamo
-        if ejemplar.esta_danado():
-            ejemplar.marcar_en_reparacion()
-            self._confirmar()
-            return prestamo
-        ejemplar.marcar_disponible()
-        self.atender_cola_reservas(ejemplar.libro_isbn, sede_devolucion)
-        self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return prestamo
 
     # ---------- Logistica con remitos ----------
@@ -803,11 +868,25 @@ class RedBibliotecas:
         if self.remito_activo_por_ejemplar(codigo_ejemplar) is not None:
             raise ErrorConflicto("El ejemplar ya esta en un envio.")
         devolucion = self.ultima_devolucion_de_ejemplar(codigo_ejemplar)
-        if devolucion is None:
-            raise ErrorConflicto("El ejemplar no tiene ninguna devolucion registrada.")
+        solicitud_cancelada = False
+        for envio in self.remitos:
+            if envio.nombre_estado() != Remito.ESTADO_RECIBIDO or envio.es_retorno():
+                continue
+            for asignacion in envio.asignaciones:
+                if asignacion.ejemplar_codigo != codigo_ejemplar:
+                    continue
+                solicitud = self.buscar_solicitud(asignacion.numero_solicitud)
+                if solicitud is not None and solicitud.estado == SolicitudPrestamo.ESTADO_CANCELADA:
+                    solicitud_cancelada = True
+        if devolucion is None and solicitud_cancelada == False:
+            raise ErrorConflicto("El ejemplar no tiene una devolucion ni una solicitud cancelada recibida.")
         momento = validar_momento(fecha_creacion, "fecha de creacion del retorno")
-        if self.a_fecha(momento) < devolucion.fecha_devolucion:
-            raise ErrorDatosInvalidos("El retorno no puede crearse antes de la devolucion.")
+        self.validar_fecha_de_ejemplar(ejemplar, self.a_fecha(momento))
+        for envio in self.remitos:
+            recepcion = envio.fecha_de(Remito.ESTADO_RECIBIDO)
+            if recepcion is not None and codigo_ejemplar in envio.codigos_ejemplares():
+                if momento < recepcion:
+                    raise ErrorDatosInvalidos("El retorno no puede crearse antes de la recepcion.")
         origen = ejemplar.ubicacion_actual
         destino = ejemplar.sede_pertenencia
         self.exigir_sede_activa(origen)
@@ -835,39 +914,57 @@ class RedBibliotecas:
             raise ErrorNoEncontrado("No existe el remito: " + str(codigo))
         self.exigir_sede_activa(remito.sede_origen)
         self.exigir_sede_activa(remito.sede_destino)
-        remito.despachar(momento)
         for asignacion in remito.asignaciones:
             ejemplar = self.buscar_ejemplar(asignacion.ejemplar_codigo)
             if ejemplar is None:
                 raise ErrorNoEncontrado("No existe el ejemplar del remito: " + asignacion.ejemplar_codigo)
-            ejemplar.marcar_en_transito()
-        self._confirmar()
+        try:
+            remito.despachar(momento)
+            for asignacion in remito.asignaciones:
+                ejemplar = self.buscar_ejemplar(asignacion.ejemplar_codigo)
+                ejemplar.marcar_en_transito()
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return remito
 
-    def recibir_remito(self, codigo, momento=None):
+    def recibir_remito(self, codigo, momento=None, estado_fisico=None):
         remito = self.buscar_remito(codigo)
         if remito is None:
             raise ErrorNoEncontrado("No existe el remito: " + str(codigo))
-        remito.recibir(momento)
+        if estado_fisico not in Ejemplar.ESTADOS_FISICOS:
+            raise ErrorDatosInvalidos("Estado fisico desconocido: " + str(estado_fisico))
+        # Se comprueban todas las copias antes de cambiar el remito.
         for asignacion in remito.asignaciones:
-            ejemplar = self.buscar_ejemplar(asignacion.ejemplar_codigo)
-            if ejemplar is None:
+            if self.buscar_ejemplar(asignacion.ejemplar_codigo) is None:
                 raise ErrorNoEncontrado("No existe el ejemplar del remito: " + asignacion.ejemplar_codigo)
-            asignacion.estado_fisico_recepcion = ejemplar.estado_fisico
-            ejemplar.mover_a(remito.sede_destino)
-            if remito.es_retorno():
-                if ejemplar.esta_danado():
-                    ejemplar.marcar_en_reparacion()
+        try:
+            remito.recibir(momento)
+            for asignacion in remito.asignaciones:
+                ejemplar = self.buscar_ejemplar(asignacion.ejemplar_codigo)
+                ejemplar.registrar_revision_fisica(estado_fisico)
+                asignacion.estado_fisico_recepcion = ejemplar.estado_fisico
+                ejemplar.mover_a(remito.sede_destino)
+                if remito.es_retorno():
+                    if ejemplar.esta_danado():
+                        ejemplar.marcar_en_reparacion()
+                    else:
+                        ejemplar.marcar_disponible()
+                        destino = self.buscar_sede(remito.sede_destino)
+                        if destino is not None and destino.esta_activa():
+                            self.atender_cola_reservas(ejemplar.libro_isbn, remito.sede_destino)
                 else:
-                    ejemplar.marcar_disponible()
-                    destino = self.buscar_sede(remito.sede_destino)
-                    if destino is not None and destino.esta_activa():
-                        self.atender_cola_reservas(ejemplar.libro_isbn, remito.sede_destino)
-            else:
-                # Recibir un envio de prestamo no entrega el ejemplar al
-                # socio: la copia sigue apartada hasta la entrega real.
-                ejemplar.mantener_apartado()
-        self._confirmar()
+                    if ejemplar.esta_danado():
+                        solicitud = self.buscar_solicitud(asignacion.numero_solicitud)
+                        solicitud.cancelar()
+                        ejemplar.marcar_pendiente_retorno()
+                    else:
+                        ejemplar.mantener_apartado()
+            self._confirmar()
+        except Exception:
+            db.session.rollback()
+            raise
         return remito
 
     # ---------- Resumen ----------
@@ -881,5 +978,5 @@ class RedBibliotecas:
             "solicitudes_pendientes": SolicitudPrestamo.query.filter_by(estado=SolicitudPrestamo.ESTADO_PENDIENTE).count(),
             "prestamos_activos": Prestamo.query.filter_by(estado=Prestamo.ESTADO_ACTIVO).count(),
             "reservas_activas": Reserva.query.filter(Reserva.estado.in_((Reserva.ESTADO_PENDIENTE, Reserva.ESTADO_ASIGNADA))).count(),
-            "remitos_activos": Remito.query.filter(Remito.estado_actual != Remito.ESTADO_RECIBIDO).count(),
+            "remitos_activos": Remito.query.filter(Remito.estado_actual.notin_((Remito.ESTADO_RECIBIDO, Remito.ESTADO_CANCELADO))).count(),
         }

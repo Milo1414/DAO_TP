@@ -145,6 +145,7 @@ class PruebaBase(unittest.TestCase):
         self.assertEqual(respuesta.status_code, 200, respuesta.get_json())
         respuesta = self.pedir("POST", "/api/remitos/" + codigo + "/recibir", {
             "momento": momentos[2],
+            "estado_fisico": "bueno",
         })
         self.assertEqual(respuesta.status_code, 200, respuesta.get_json())
         return respuesta.get_json()["datos"]

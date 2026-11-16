@@ -222,6 +222,7 @@ class ReporteMovimientoEnvios(Reporte):
             lista = grupo["remitos"]
             total = 0
             pendientes = 0
+            cancelados = 0
             recibidos = 0
             prestamos = 0
             retornos = 0
@@ -249,6 +250,8 @@ class ReporteMovimientoEnvios(Reporte):
                     for asignacion in remito.asignaciones:
                         if asignacion.estado_fisico_recepcion == "requiere_reparacion":
                             copias_danadas_recepcion = copias_danadas_recepcion + 1
+                elif remito.nombre_estado() == "cancelado":
+                    cancelados = cancelados + 1
                 else:
                     pendientes = pendientes + 1
             promedio_horas_transito = 0
@@ -269,6 +272,7 @@ class ReporteMovimientoEnvios(Reporte):
             fila["retornos"] = retornos
             fila["recibidos"] = recibidos
             fila["pendientes"] = pendientes
+            fila["cancelados"] = cancelados
             fila["copias_danadas_recepcion"] = copias_danadas_recepcion
             fila["tasa_exito"] = round(tasa_exito, 2)
             fila["promedio_horas_transito"] = round(promedio_horas_transito, 2)

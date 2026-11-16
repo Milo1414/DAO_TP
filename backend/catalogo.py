@@ -38,6 +38,13 @@ class Libro(db.Model):
         self.anio = nuevo_anio
         self.genero = nuevo_genero
 
+    def validar_datos(self):
+        validar_codigo(self.isbn, "ISBN")
+        validar_texto(self.titulo, "titulo del libro")
+        validar_texto(self.autor, "autor del libro")
+        validar_anio(self.anio, "anio del libro")
+        validar_texto(self.genero, "genero del libro")
+
 
 class Ejemplar(db.Model):
     __tablename__ = "ejemplares"
@@ -96,6 +103,27 @@ class Ejemplar(db.Model):
 
     def esta_disponible(self):
         return self.estado_disponibilidad == Ejemplar.DISPONIBLE
+
+    def validar_datos(self):
+        validar_codigo(self.codigo, "codigo de ejemplar")
+        validar_codigo(self.libro_isbn, "ISBN")
+        validar_codigo(self.sede_pertenencia, "sede de pertenencia")
+        if self.ubicacion_actual is not None:
+            validar_codigo(self.ubicacion_actual, "ubicacion actual")
+        if self.estado_disponibilidad not in Ejemplar.ESTADOS_DISPONIBILIDAD:
+            raise ErrorDatosInvalidos("Estado de disponibilidad desconocido.")
+        if self.estado_fisico not in Ejemplar.ESTADOS_FISICOS:
+            raise ErrorDatosInvalidos("Estado fisico desconocido.")
+        if self.estado_disponibilidad == Ejemplar.EN_TRANSITO:
+            if self.ubicacion_actual is not None:
+                raise ErrorDatosInvalidos("Un ejemplar en transito no puede tener ubicacion fisica.")
+        elif self.ubicacion_actual is None:
+            raise ErrorDatosInvalidos("Un ejemplar fuera de transito debe tener ubicacion fisica.")
+        if self.esta_disponible():
+            if self.esta_danado() or self.solicitud_asignada is not None or self.reserva_asignada is not None:
+                raise ErrorDatosInvalidos("Un ejemplar disponible no puede estar danado ni asignado.")
+            if self.ubicacion_actual != self.sede_pertenencia:
+                raise ErrorDatosInvalidos("Un ejemplar disponible debe estar en su sede de pertenencia.")
 
     def esta_apartado(self):
         return self.estado_disponibilidad == Ejemplar.APARTADO

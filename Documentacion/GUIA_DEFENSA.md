@@ -196,6 +196,10 @@ historial. El remito valida la secuencia:
 pendiente_empaque -> empaquetado -> despachado -> recibido
 ```
 
+Desde `pendiente_empaque` o `empaquetado` también puede terminar en `cancelado`.
+La cancelación conserva el historial. Si la solicitud se cancela después de
+recibir el envío, el remito permanece recibido y la copia espera su retorno.
+
 Si una transición es inválida o el momento es anterior al último evento, no
 cambia el estado y no agrega historial.
 
@@ -472,6 +476,12 @@ Al recibir:
 - si es un préstamo, sigue apartada hasta que se entrega al socio;
 - si es un retorno, vuelve a disponible o queda en reparación si llegó dañada.
 
+El operador debe informar el estado físico observado al recibir; no se copia
+automáticamente el estado previo. Si una copia de préstamo llega requiriendo
+reparación, su solicitud se cancela y la copia queda pendiente de retorno.
+También se permite retornar una copia recibida cuya solicitud fue cancelada,
+sin inventar un préstamo ni una devolución.
+
 ### 7.6 Cálculos de reportes
 
 - Activos y vencidos: recorre préstamos activos por sede, calcula proporción,
@@ -554,7 +564,8 @@ finalizar se cierran sesión y motor para poder borrar el archivo en Windows.
 7. “Los reportes usan Factory Method para que la API no dependa de las clases
    concretas.”
 8. “La base demo se genera con `crear_base_demo.py` y el ORM.”
-9. “La suite cubre API, ORM, patrones, reportes y migración; son 40 pruebas.”
+9. “La suite cubre API, ORM, patrones, reportes, migración y las regresiones
+   de la revisión final; son 56 pruebas.”
 
 ## 9. Preguntas probables del profesor
 
@@ -577,9 +588,12 @@ punteros.
 
 ### ¿Qué pasa si falla una operación a mitad de camino?
 
-`RedBibliotecas._confirmar` hace `commit`; ante una excepción hace `rollback`.
-Los manejadores de Flask también hacen `rollback` antes de devolver el error.
-No queda una operación a medias.
+Los datos y cálculos se validan antes de modificar. Las operaciones que
+coordinan varias entidades protegen sus modificaciones con `try / except` y
+`rollback`, incluido un fallo anterior a `commit`. `_confirmar` revierte si
+falla el guardado. Los manejadores HTTP también revierten, pero el dominio no
+depende exclusivamente de ellos. Las pruebas fuerzan fallos mediante llamadas
+directas al coordinador y comprueban la persistencia después del rechazo.
 
 ### ¿Cómo se calcula la multa?
 
@@ -602,7 +616,10 @@ proyecto.
 ### ¿Qué pasa con los datos inválidos de una base vieja?
 
 No se corrigen automáticamente. `preparar_base` los informa y `/api/salud` los
-muestra para que una persona decida qué hacer.
+muestra para que una persona decida qué hacer. Las búsquedas y colecciones del
+coordinador validan las entidades recuperadas antes de usarlas; una consulta
+que incluya datos inválidos puede rechazarse. Los constructores por sí solos
+no bastan porque SQLAlchemy no ejecuta `__init__` al recuperar una fila.
 
 ### ¿Por qué el frontend no valida las reglas?
 

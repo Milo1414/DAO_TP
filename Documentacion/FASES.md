@@ -131,6 +131,40 @@ alineada con el código y publicar el repositorio.
 - Se agregó `Documentacion/GUIA_DEFENSA.md` con el mapa de archivos, la
   conexión frontend/backend y las piezas complejas.
 
+## Correcciones de la revisión final
+
+- Se agregó la cancelación de remitos antes del despacho, con evento histórico.
+  En tránsito se exige recibir antes de cancelar la solicitud; tras recibir,
+  la copia puede retornar aunque no haya nacido un préstamo. Los remitos
+  cancelados no cuentan como envíos activos ni pendientes en los reportes.
+- Solicitudes y entregas verifican la última devolución y recepción de la
+  copia. Las solicitudes asociadas a reservas respetan su fecha de creación.
+- La entrega valida la configuración antes de modificar entidades. Las
+  operaciones de varias entidades revierten también los fallos anteriores al
+  guardado, sin depender del manejador HTTP.
+- Las entidades recuperadas se validan en las búsquedas y colecciones del
+  coordinador. La revisión heredada detecta vencimientos/devoluciones incoherentes,
+  préstamos superpuestos, relaciones cruzadas y secuencias o momentos inválidos
+  en el historial. Los datos inválidos se conservan y las consultas afectadas
+  pueden rechazarse; `/api/salud` conserva el diagnóstico inicial.
+- La recepción exige `estado_fisico` en la API y en el formulario. La evidencia
+  histórica usa esa observación, incluso si posteriormente se repara la copia.
+  Si una copia de préstamo llega requiriendo reparación, su solicitud se cancela
+  y la copia queda pendiente de retorno.
+- Los momentos se interpretan como hora local sin zona horaria. Entradas con
+  `Z` o desplazamiento se rechazan con HTTP 400 antes de modificar el remito.
+
+Comprobaciones de esta revisión:
+
+| Comprobación | Resultado |
+|---|---|
+| `python -B -m unittest discover -s tests -v` | 56 pruebas correctas, incluidas 16 regresiones nuevas |
+| `node --check frontend/app.js` | sin errores de sintaxis |
+| Generación de la demo en una base temporal | casos completos, revisión sin problemas y `/api/listados` HTTP 200 |
+| `node tests/test_frontend.js` | formulario de recepción, estado observado y envío JSON correctos |
+
+La demo versionada no se reemplaza durante estas comprobaciones.
+
 ## Decisiones de alcance
 
 - No se implementaron usuarios, autenticación, notificaciones ni historial de

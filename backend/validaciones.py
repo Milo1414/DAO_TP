@@ -83,6 +83,8 @@ def validar_fecha(valor, descripcion):
 
 def validar_momento(valor, descripcion):
     if isinstance(valor, datetime.datetime):
+        if valor.utcoffset() is not None:
+            raise ErrorDatosInvalidos(descripcion + " debe usar hora local sin zona horaria.")
         return valor
     if isinstance(valor, datetime.date):
         return datetime.datetime.combine(valor, datetime.time(0, 0))
@@ -171,3 +173,28 @@ def validar_tipo_solicitud(valor):
     if valor not in tipos:
         raise ErrorDatosInvalidos("Tipo de solicitud no valido: " + str(valor))
     return valor
+
+
+def validar_historial_remito(fecha_creacion, estado_actual, eventos):
+    creacion = validar_momento(fecha_creacion, "creacion del remito")
+    secuencia = ["pendiente_empaque", "empaquetado", "despachado", "recibido"]
+    if len(eventos) == 0:
+        raise ErrorDatosInvalidos("El remito no tiene historial.")
+    anterior = creacion
+    for indice in range(len(eventos)):
+        orden, estado, momento = eventos[indice]
+        momento = validar_momento(momento, "momento del historial")
+        if orden != indice:
+            raise ErrorDatosInvalidos("El orden del historial debe ser consecutivo desde cero.")
+        if estado == "cancelado":
+            if indice not in (1, 2) or indice != len(eventos) - 1:
+                raise ErrorDatosInvalidos("La cancelacion solo puede cerrar el historial antes del despacho.")
+        elif indice >= len(secuencia) or estado != secuencia[indice]:
+            raise ErrorDatosInvalidos("La secuencia del historial del remito no es valida.")
+        if momento < anterior:
+            raise ErrorDatosInvalidos("La cronologia del historial del remito no es valida.")
+        if indice == 0 and momento != creacion:
+            raise ErrorDatosInvalidos("El primer evento debe coincidir con la creacion del remito.")
+        anterior = momento
+    if eventos[-1][1] != estado_actual:
+        raise ErrorDatosInvalidos("El ultimo historial no coincide con el estado actual.")
