@@ -353,5 +353,108 @@ class PruebaReservas(PruebaBase):
         self.assertEqual(self.red.buscar_reserva(2).ejemplar_codigo, "E3")
 
 
+
+class PruebaValidacionesDelEnunciado(PruebaBase):
+    def test_no_se_presta_un_ejemplar_que_no_pertenece_a_la_sede_de_origen(self):
+        self.datos_basicos(dos_sedes=True)
+        respuesta = self.pedir("POST", "/api/solicitudes", {
+            "socio_numero": 1,
+            "libro_isbn": "L1",
+            "ejemplar_codigo": "E2",
+            "sede_origen": "S1",
+            "sede_destino": "S1",
+            "fecha_solicitud": "2026-01-10",
+            "tipo": "local",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertIn("no pertenece a la sede de origen", respuesta.get_json()["error"])
+
+        respuesta = self.pedir("GET", "/api/ejemplares/E2")
+        self.assertEqual(respuesta.get_json()["datos"]["estado_disponibilidad"], "disponible")
+        respuesta = self.pedir("GET", "/api/solicitudes")
+        self.assertEqual(respuesta.get_json()["datos"], [])
+
+    def test_no_se_presta_un_ejemplar_que_no_esta_disponible(self):
+        self.datos_basicos()
+        self.crear_socio(2)
+        self.solicitud_local()
+        respuesta = self.pedir("POST", "/api/solicitudes", {
+            "socio_numero": 2,
+            "libro_isbn": "L1",
+            "ejemplar_codigo": "E1",
+            "sede_origen": "S1",
+            "sede_destino": "S1",
+            "fecha_solicitud": "2026-01-11",
+            "tipo": "local",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        respuesta = self.pedir("GET", "/api/solicitudes")
+        self.assertEqual(len(respuesta.get_json()["datos"]), 1)
+
+    def test_sede_dada_de_baja_no_inicia_solicitudes_reservas_ni_envios(self):
+        self.datos_basicos(dos_sedes=True)
+        self.solicitud_interbibliotecaria()
+        respuesta = self.pedir("POST", "/api/sedes/S2/baja", {})
+        self.assertEqual(respuesta.status_code, 200)
+
+        # Envio desde una sede dada de baja.
+        respuesta = self.pedir("POST", "/api/remitos/prestamo", {
+            "solicitud_numero": 1,
+            "fecha_creacion": "2026-01-10T10:00:00",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertIn("dada de baja", respuesta.get_json()["error"])
+
+        # Solicitud hacia una sede dada de baja.
+        respuesta = self.pedir("POST", "/api/solicitudes", {
+            "socio_numero": 1,
+            "libro_isbn": "L1",
+            "ejemplar_codigo": "E1",
+            "sede_origen": "S1",
+            "sede_destino": "S2",
+            "fecha_solicitud": "2026-01-10",
+            "tipo": "interbibliotecario",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertIn("dada de baja", respuesta.get_json()["error"])
+
+        # Reserva en una sede dada de baja.
+        respuesta = self.pedir("POST", "/api/reservas", {
+            "socio_numero": 1,
+            "libro_isbn": "L1",
+            "codigo_sede": "S2",
+            "fecha_reserva": "2026-01-10",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+
+        respuesta = self.pedir("GET", "/api/remitos")
+        self.assertEqual(respuesta.get_json()["datos"], [])
+        respuesta = self.pedir("GET", "/api/reservas")
+        self.assertEqual(respuesta.get_json()["datos"], [])
+
+    def test_no_se_duplican_sedes_ni_libros(self):
+        self.datos_basicos()
+        respuesta = self.pedir("POST", "/api/sedes", {
+            "codigo": "S1",
+            "nombre": "Otra sede",
+            "direccion": "Otra calle",
+            "telefono": "555-9999",
+            "horario": "09:00-17:00",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        respuesta = self.pedir("POST", "/api/libros", {
+            "isbn": "L1",
+            "titulo": "Otro titulo",
+            "autor": "Otro autor",
+            "anio": 2021,
+            "genero": "Ensayo",
+        })
+        self.assertEqual(respuesta.status_code, 409)
+        respuesta = self.pedir("GET", "/api/sedes/S1")
+        self.assertEqual(respuesta.get_json()["datos"]["nombre"], "Sede S1")
+        respuesta = self.pedir("GET", "/api/libros/L1")
+        self.assertEqual(respuesta.get_json()["datos"]["titulo"], "Libro de prueba")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -60,6 +60,49 @@ async function comprobarRecepcion() {
     console.log("Recepcion frontend: formulario, estado observado y envio JSON correctos.");
 }
 
+function comprobarTrayecto() {
+    contexto.remito = {
+        codigo: "R-2", estado_actual: "empaquetado",
+        historial: [
+            { orden: 0, estado: "pendiente_empaque", momento: "2026-01-10 09:00:00" },
+            { orden: 1, estado: "empaquetado", momento: "2026-01-10 10:30:00" },
+        ],
+    };
+    let pasos = vm.runInContext("pasosDeRemito(remito)", contexto);
+    assert.equal(pasos.length, 4);
+    assert.equal(pasos[0].clase, "hecho");
+    assert.equal(pasos[1].clase, "actual");
+    assert.equal(pasos[1].momento, "2026-01-10 10:30:00");
+    assert.equal(pasos[2].clase, "pendiente");
+    assert.equal(pasos[3].clase, "pendiente");
+    const html = vm.runInContext("renderTrayecto(remito)", contexto);
+    assert.match(html, /10\/01\/2026 10:30/);
+
+    contexto.remito = {
+        codigo: "R-3", estado_actual: "cancelado",
+        historial: [
+            { orden: 0, estado: "pendiente_empaque", momento: "2026-01-10 09:00:00" },
+            { orden: 1, estado: "cancelado", momento: "2026-01-11 08:00:00" },
+        ],
+    };
+    pasos = vm.runInContext("pasosDeRemito(remito)", contexto);
+    assert.equal(pasos.length, 2);
+    assert.equal(pasos[0].nombre, "pendiente_empaque");
+    assert.equal(pasos[1].nombre, "cancelado");
+    assert.equal(pasos[1].clase, "cancelado");
+    assert.equal(pasos[1].momento, "2026-01-11 08:00:00");
+    console.log("Trayecto frontend: pasos en curso y cancelados correctos.");
+}
+
+function comprobarFechas() {
+    assert.equal(vm.runInContext('fechaTexto("2026-08-01")', contexto), "01/08/2026");
+    assert.equal(vm.runInContext('momentoTexto("2026-08-01 09:05:00")', contexto), "01/08/2026 09:05");
+    assert.equal(vm.runInContext("fechaTexto(null)", contexto), "-");
+    console.log("Fechas frontend: formato dia/mes/anio correcto.");
+}
+
+comprobarTrayecto();
+comprobarFechas();
 comprobarRecepcion().catch(function (error) {
     console.error(error);
     process.exitCode = 1;

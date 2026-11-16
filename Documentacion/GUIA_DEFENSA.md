@@ -270,7 +270,11 @@ inspeccionar un esquema viejo antes de mapearlo.
   atómicas;
 - `test_patrones.py`: Factory Method y Observer;
 - `test_reportes.py`: cálculos, filtros y tiempos;
-- `test_migracion.py`: respaldo, columna nueva y datos heredados.
+- `test_migracion.py`: respaldo, columna nueva y datos heredados;
+- `test_regresiones.py`: cancelaciones de remitos, control de fechas,
+  reversión de fallos y datos recuperados inválidos;
+- `test_frontend.js`: carga `app.js` con Node y prueba el trayecto del
+  remito, el formato de fechas y el formulario de recepción.
 
 Cada prueba usa su propia base SQLite temporal. En Windows se llama a
 `db.session.remove()` y `db.engine.dispose()` antes de borrar la carpeta.
@@ -291,7 +295,7 @@ Cada prueba usa su propia base SQLite temporal. En Windows se llama a
 Es el esqueleto de la página:
 
 - encabezado y estado de conexión;
-- menú con las nueve secciones;
+- menú con las nueve secciones, agrupadas, y un contador de pendientes;
 - contenedor `#contenido`, que el JavaScript rellena dinámicamente;
 - carga de `styles.css` y `app.js`.
 
@@ -301,7 +305,8 @@ sección.
 ### `frontend/styles.css`
 
 Define variables de color, distribución, tarjetas, tablas, formularios,
-mensajes, insignias y comportamiento responsive. No contiene lógica.
+mensajes, insignias, el trayecto del remito y el comportamiento responsive.
+No contiene lógica.
 
 ### `frontend/app.js`
 
@@ -316,7 +321,13 @@ Es toda la interfaz. Sus partes principales son:
 - `conectarEventos`: delegación de clics, envíos y escritura;
 - `manejarFormulario`: arma el JSON según el formulario;
 - `cargarReporte` y `pintarReporte`;
-- `formatearHorario`: convierte ocho dígitos en `HH:MM-HH:MM`.
+- `formatearHorario`: convierte ocho dígitos en `HH:MM-HH:MM`;
+- `calcularPendientes` y `actualizarContadores`: cuentan lo que espera una
+  acción y lo muestran en el inicio y en el menú;
+- `pasosDeRemito` y `renderTrayecto`: dibujan los estados del remito;
+- `ayudarSolicitud`: completa campos del formulario de solicitud;
+- `filtrarElementos`: buscador de texto de los listados;
+- `fechaTexto` y `momentoTexto`: muestran las fechas como `dd/mm/aaaa`.
 
 No hay reglas de negocio en el frontend. Si el backend rechaza una operación,
 el error se muestra y se vuelve a consultar el estado real.
@@ -546,7 +557,31 @@ function formatearHorario(valor) {
 También conserva la posición del cursor y se aplica al enviar el formulario,
 para que la API reciba siempre el formato que valida el backend.
 
-### 7.10 Pruebas
+### 7.10 Trayecto del remito y ayudas de la interfaz
+
+El ciclo de vida del remito se ve en la sección Remitos. `pasosDeRemito`
+recorre la secuencia `pendiente_empaque -> empaquetado -> despachado ->
+recibido` y, para cada estado, busca su evento en el historial que devolvió la
+API:
+
+- si el evento existe, el paso está hecho y muestra su momento;
+- el estado actual se marca aparte;
+- los que faltan se muestran como pendientes;
+- un remito cancelado muestra los pasos que alcanzó y termina en "Cancelado".
+
+La interfaz no decide ninguna transición: solo dibuja el historial que guardó
+el Observer y ofrece el botón del paso siguiente. Si la transición no es
+válida, el backend la rechaza y se muestra el error.
+
+`calcularPendientes` cuenta estados que ya vienen calculados (por ejemplo
+`dias_atraso` de cada préstamo). `ayudarSolicitud` completa la sede de origen
+con la sede de pertenencia del ejemplar elegido y sugiere el tipo; el usuario
+puede cambiarlos y el backend valida igual.
+
+Para la defensa: “la pantalla muestra y ayuda a cargar; las reglas siguen en
+el dominio”.
+
+### 7.11 Pruebas
 
 Cada prueba crea una base nueva y usa el cliente de Flask. Se verifica el
 comportamiento real de la API y del ORM, no solo funciones aisladas. Al
@@ -565,7 +600,7 @@ finalizar se cierran sesión y motor para poder borrar el archivo en Windows.
    concretas.”
 8. “La base demo se genera con `crear_base_demo.py` y el ORM.”
 9. “La suite cubre API, ORM, patrones, reportes, migración y las regresiones
-   de la revisión final; son 56 pruebas.”
+   de la revisión final; son 60 pruebas.”
 
 ## 9. Preguntas probables del profesor
 
@@ -623,8 +658,8 @@ no bastan porque SQLAlchemy no ejecuta `__init__` al recuperar una fila.
 
 ### ¿Por qué el frontend no valida las reglas?
 
-Valida formatos básicos para ayudar al usuario, pero la decisión final está en
-el backend. Si alguien llama directo a la API, las reglas se siguen
+Valida formatos básicos y completa algunos campos para ayudar al usuario,
+pero la decisión final está en el backend. Si alguien llama directo a la API, las reglas se siguen
 cumpliendo.
 
 ### ¿Qué se puede borrar o qué no?
@@ -657,6 +692,7 @@ se eliminan.
 ## 11. Archivos de documentación
 
 - `ENUNCIADO.md`: consigna del trabajo.
-- `README.md`: instalación, ejecución, API y estructura.
+- `README.md`: instalación, ejecución, API, estructura y la tabla de
+  cumplimiento del enunciado.
 - `FASES.md`: decisiones y orden de implementación.
 - `GUIA_DEFENSA.md`: este documento.

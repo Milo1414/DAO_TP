@@ -221,6 +221,55 @@ Los errores se devuelven con un código HTTP y un cuerpo como
 - El plazo de préstamo es de 14 días y la multa de 100 pesos por día de atraso;
   ambos valores se guardan en la tabla `configuracion`.
 
+## Cumplimiento del enunciado
+
+### Procesos obligatorios
+
+| Proceso | Dónde se resuelve | Sección de la interfaz |
+|---|---|---|
+| 1. Administrar sedes (dirección, contacto, horarios, activa/baja) | `sede.py` y las operaciones de sedes de `red.py` | Sedes |
+| 2. Administrar socios | `socio.py`, `red.py` | Socios |
+| 3. Catálogo y ejemplares con su sede | `catalogo.py`, `red.py` | Catálogo y ejemplares |
+| 4. Solicitudes locales e interbibliotecarias con origen y destino | `prestamos.py`, `red.registrar_solicitud` | Solicitudes |
+| 5. Empaquetar, despachar y recibir con remito y trazabilidad | `remito.py` (estados y Observer), `red.py` | Remitos e historial |
+| 6. Consultar disponibilidad | `red.motivo_no_disponible`, reporte de disponibilidad | Catálogo y ejemplares, Reportes |
+| 7. Gestionar reservas | `prestamos.Reserva`, cola FIFO en `red.py` | Reservas |
+| 8. Devoluciones y estado físico | `red.py` (devolución, multa y estado físico) | Préstamos y devoluciones |
+
+### Validaciones de negocio
+
+| Validación | Regla en el código | Prueba |
+|---|---|---|
+| No prestar ejemplares no disponibles | `registrar_solicitud` y `entregar_solicitud` | `test_no_se_presta_un_ejemplar_que_no_esta_disponible` |
+| No prestar a socios inhabilitados | `exigir_socio_habilitado` | `test_no_se_presta_a_socio_inhabilitado` |
+| Controlar vencimientos | `Prestamo.dias_atraso` y `multa_acumulada` | `test_multa_por_atraso`, `test_activos_y_vencidos` |
+| Trazabilidad del remito | `Remito` + `RegistradorHistorial` | `test_transiciones_validas_notifican_y_guardan_historial`, `test_circuito_con_remito_y_retorno` |
+| Evitar duplicados | altas de `red.py` (código de sede, número y email de socio, ISBN, código de ejemplar) | `test_crud_de_socio`, `test_catalogo_y_ejemplares`, `test_no_se_duplican_sedes_ni_libros` |
+| Ejemplar de la sede de origen | `registrar_solicitud` | `test_no_se_presta_un_ejemplar_que_no_pertenece_a_la_sede_de_origen` |
+| Sede dada de baja | `exigir_sede_activa` | `test_sede_dada_de_baja_no_inicia_solicitudes_reservas_ni_envios` |
+
+### Reportes
+
+El enunciado exige al menos cuatro reportes no triviales. Los cuatro
+implementados cubren los seis sugeridos de esta forma:
+
+| Reporte sugerido | Reporte que lo cubre |
+|---|---|
+| Préstamos activos y material en tránsito | Activos y vencidos; la columna "En tránsito" de Disponibilidad |
+| Préstamos vencidos y multas acumuladas | Activos y vencidos |
+| Libros más solicitados inter-sedes | Libros solicitados |
+| Disponibilidad de catálogo por sede | Disponibilidad |
+| Tasa de envíos exitosos e incidencias | Movimiento (tasa de éxito y copias dañadas al recibir) |
+| Movimiento entre sedes y tiempo de tránsito | Movimiento |
+
+### Patrones y procesos opcionales
+
+- Se aplican dos patrones: Factory Method y Observer (ver la sección siguiente).
+- De los procesos opcionales se cubre en parte la revisión del estado de
+  recepción (se registra el daño observado; no el extravío ni la destrucción)
+  y el inventario con códigos (cada ejemplar tiene un código único).
+  Notificaciones, historial de lecturas y recomendaciones no se implementaron.
+
 ## Patrones de diseño
 
 ### Factory Method
@@ -265,7 +314,9 @@ node tests/test_frontend.js
 
 La suite usa bases SQLite temporales. Cubre la API, las reglas de préstamo y
 retorno, reservas, reportes, patrones, persistencia, migración y validaciones
-atómicas.
+atómicas. `tests/test_frontend.js` ejecuta con Node las funciones de la
+interfaz que arman el trayecto del remito, el formato de fechas y el envío de
+la recepción.
 
 ## Interfaz web
 
@@ -273,3 +324,18 @@ El frontend permite operar el sistema completo desde el navegador:
 sedes, socios, catálogo, solicitudes, reservas, préstamos, devoluciones,
 remitos, historial y reportes. No contiene reglas de negocio: muestra los
 errores de la API y vuelve a consultar los listados después de cada operación.
+
+- **Inicio**: cantidades generales, lista de tareas para atender (préstamos
+  vencidos, solicitudes pendientes, remitos en curso, copias a retornar o en
+  reparación) y aviso de datos heredados.
+- **Menú**: agrupado por administración, circulación, logística y análisis,
+  con un contador de pendientes por sección.
+- **Remitos**: cada remito es una tarjeta con su trayecto de estados y el
+  momento registrado de cada paso; el botón disponible es siempre el paso
+  siguiente (empaquetar, despachar o recibir).
+- **Préstamos**: los vencidos se resaltan con los días de atraso y la multa
+  estimada.
+- **Listados**: cada tabla tiene un buscador de texto.
+- **Solicitudes**: al elegir el libro se listan sus ejemplares, al elegir el
+  ejemplar se completa la sede de origen y el tipo se sugiere según las sedes.
+  Es solo una ayuda de carga: el backend valida todos los datos.

@@ -15,14 +15,15 @@ const estado = {
     filasReporte: null,
     nombreReporte: "",
     cargandoReporte: false,
+    numeroCampo: 0,
 };
 
 const NOMBRES_ESTADO = {
     disponible: "Disponible",
     apartado: "Apartado",
     prestado: "Prestado",
-    en_transito: "En transito",
-    en_reparacion: "En reparacion",
+    en_transito: "En tránsito",
+    en_reparacion: "En reparación",
     pendiente_retorno: "Pendiente de retorno",
     pendiente: "Pendiente",
     entregada: "Entregada",
@@ -38,10 +39,10 @@ const NOMBRES_ESTADO = {
     recibido: "Recibido",
     bueno: "Bueno",
     deteriorado: "Deteriorado",
-    requiere_reparacion: "Requiere reparacion",
+    requiere_reparacion: "Requiere reparación",
     local: "Local",
     interbibliotecario: "Interbibliotecario",
-    prestamo: "Prestamo",
+    prestamo: "Préstamo",
     retorno: "Retorno",
 };
 
@@ -49,34 +50,34 @@ const ETIQUETAS_REPORTE = {
     sede: "Sede",
     sede_nombre: "Nombre de sede",
     isbn: "ISBN",
-    titulo: "Titulo",
+    titulo: "Título",
     activos: "Activos",
     vencidos: "Vencidos",
-    proporcion_vencidos: "Proporcion vencidos",
-    promedio_dias_atraso: "Promedio dias de atraso",
+    proporcion_vencidos: "Proporción de vencidos",
+    promedio_dias_atraso: "Promedio de días de atraso",
     multa_total: "Multa acumulada",
     total: "Total",
     disponibles: "Disponibles",
     prestados: "Prestados",
-    en_transito: "En transito",
-    en_reparacion: "En reparacion",
+    en_transito: "En tránsito",
+    en_reparacion: "En reparación",
     apartados: "Apartados",
     pendientes_retorno: "Pendientes de retorno",
     reservas_activas: "Reservas activas",
     cantidad: "Cantidad",
     origen: "Origen",
     destino: "Destino",
-    prestamos: "Prestamos",
+    prestamos: "Préstamos",
     retornos: "Retornos",
     recibidos: "Recibidos",
     pendientes: "Pendientes",
     cancelados: "Cancelados",
-    copias_danadas_recepcion: "Copias danadas al recibir",
-    tasa_exito: "Tasa de exito",
-    promedio_horas_transito: "Horas de transito",
-    promedio_dias_transito: "Dias de transito",
+    copias_danadas_recepcion: "Copias dañadas al recibir",
+    tasa_exito: "Tasa de éxito",
+    promedio_horas_transito: "Horas de tránsito",
+    promedio_dias_transito: "Días de tránsito",
     promedio_horas_total: "Horas totales",
-    promedio_dias_total: "Dias totales",
+    promedio_dias_total: "Días totales",
 };
 
 const RUTAS_REPORTES = {
@@ -228,7 +229,7 @@ function claseEstado(valor) {
         "prestamo",
         "retorno",
     ];
-    const peligros = ["cancelada", "en_reparacion", "inhabilitado"];
+    const peligros = ["cancelada", "cancelado", "en_reparacion", "inhabilitado"];
     if (buenos.indexOf(valor) >= 0) {
         return "ok";
     }
@@ -315,11 +316,14 @@ function opcionesLibros(seleccionado, vacio) {
     return opciones(lista, seleccionado, vacio);
 }
 
-function opcionesEjemplares(seleccionado, vacio) {
+function opcionesEjemplares(seleccionado, vacio, isbn) {
     const lista = [];
     const ejemplares = estado.listados ? estado.listados.ejemplares : [];
     for (let indice = 0; indice < ejemplares.length; indice += 1) {
         const ejemplar = ejemplares[indice];
+        if (isbn && ejemplar.libro_isbn !== isbn) {
+            continue;
+        }
         const etiqueta = ejemplar.codigo + " - " + ejemplar.libro_titulo +
             " (" + ejemplar.sede_pertenencia + ", " + nombreEstado(ejemplar.estado_disponibilidad) + ")";
         lista.push({ valor: ejemplar.codigo, etiqueta: etiqueta });
@@ -341,7 +345,7 @@ async function pedir(metodo, ruta, cuerpo) {
         cuerpoRespuesta = null;
     }
     if (!respuesta.ok) {
-        let mensaje = "La operacion no se pudo completar.";
+        let mensaje = "La operación no se pudo completar.";
         if (cuerpoRespuesta && cuerpoRespuesta.error) {
             mensaje = cuerpoRespuesta.error;
         }
@@ -353,12 +357,23 @@ async function pedir(metodo, ruta, cuerpo) {
 function avisar(mensaje, tipo) {
     const contenedor = document.getElementById("mensajes");
     const elemento = document.createElement("div");
-    elemento.className = "mensaje " + (tipo === "error" ? "error" : "exito");
+    let duracion = 4000;
+    if (tipo === "error") {
+        elemento.className = "mensaje error";
+        elemento.setAttribute("role", "alert");
+        duracion = 9000;
+    } else {
+        elemento.className = "mensaje exito";
+    }
     elemento.textContent = mensaje;
+    elemento.title = "Clic para cerrar";
+    elemento.addEventListener("click", function () {
+        elemento.remove();
+    });
     contenedor.appendChild(elemento);
     window.setTimeout(function () {
         elemento.remove();
-    }, 5000);
+    }, duracion);
 }
 
 function actualizarServidor(conectado) {
@@ -370,7 +385,7 @@ function actualizarServidor(conectado) {
         texto.textContent = "API conectada";
     } else {
         contenedor.classList.add("desconectado");
-        texto.textContent = "Sin conexion";
+        texto.textContent = "Sin conexión";
     }
 }
 
@@ -396,8 +411,10 @@ function render() {
         const boton = botones[indice];
         if (boton.dataset.seccion === estado.seccion) {
             boton.classList.add("activo");
+            boton.setAttribute("aria-current", "page");
         } else {
             boton.classList.remove("activo");
+            boton.removeAttribute("aria-current");
         }
     }
     const contenido = document.getElementById("contenido");
@@ -425,6 +442,8 @@ function render() {
         contenido.innerHTML = renderReportes();
         pintarReporte();
     }
+    asociarEtiquetas(contenido);
+    actualizarContadores();
 }
 
 async function abrirSeccion(seccion) {
@@ -437,31 +456,60 @@ async function abrirSeccion(seccion) {
 
 function renderInicio() {
     const resumen = estado.listados.resumen;
+    const pendientes = calcularPendientes();
     const tarjetas = [
-        ["Sedes", resumen.sedes],
-        ["Socios", resumen.socios],
-        ["Libros", resumen.libros],
-        ["Ejemplares", resumen.ejemplares],
-        ["Solicitudes pendientes", resumen.solicitudes_pendientes],
-        ["Prestamos activos", resumen.prestamos_activos],
-        ["Reservas activas", resumen.reservas_activas],
-        ["Remitos en curso", resumen.remitos_activos],
+        ["Sedes", resumen.sedes, "sedes"],
+        ["Socios", resumen.socios, "socios"],
+        ["Libros", resumen.libros, "catalogo"],
+        ["Ejemplares", resumen.ejemplares, "catalogo"],
+        ["Solicitudes pendientes", resumen.solicitudes_pendientes, "solicitudes"],
+        ["Préstamos activos", resumen.prestamos_activos, "prestamos"],
+        ["Reservas activas", resumen.reservas_activas, "reservas"],
+        ["Remitos en curso", resumen.remitos_activos, "remitos"],
     ];
+    const tareas = [
+        [pendientes.vencidos, "Préstamos vencidos sin devolver", "prestamos", true],
+        [pendientes.solicitudes, "Solicitudes pendientes de entrega", "solicitudes", false],
+        [pendientes.remitos, "Remitos en curso: empaque, despacho o recepción", "remitos", false],
+        [pendientes.retornos, "Copias a la espera de un remito de retorno", "remitos", false],
+        [pendientes.reparacion, "Copias en reparación", "catalogo", false],
+    ];
+
     let html = '<section class="panel">';
-    html += '<div class="panel-encabezado"><div><h2>Estado general</h2>';
-    html += "<p>Resumen de la red guardado en la base SQLite.</p></div></div>";
+    html += '<div class="panel-encabezado"><h2>Estado general</h2>';
+    html += "<p>Resumen de la red. Cada tarjeta lleva a su sección.</p></div>";
     html += '<div class="tarjetas">';
     for (let indice = 0; indice < tarjetas.length; indice += 1) {
-        html += '<div class="tarjeta">';
+        html += '<button type="button" class="tarjeta" data-seccion="' + tarjetas[indice][2] + '">';
         html += '<span class="numero">' + esc(tarjetas[indice][1]) + "</span>";
         html += '<span class="etiqueta">' + esc(tarjetas[indice][0]) + "</span>";
-        html += "</div>";
+        html += "</button>";
     }
     html += "</div>";
 
+    html += "<h3>Para atender ahora</h3>";
+    let hayTareas = false;
+    let lista = '<ul class="atencion">';
+    for (let indice = 0; indice < tareas.length; indice += 1) {
+        const tarea = tareas[indice];
+        if (tarea[0] === 0) {
+            continue;
+        }
+        hayTareas = true;
+        lista += '<li><button type="button" data-seccion="' + tarea[2] + '"' + (tarea[3] ? ' class="urgente"' : "") + ">";
+        lista += '<span class="cantidad">' + esc(tarea[0]) + "</span><span>" + esc(tarea[1]) + "</span>";
+        lista += "</button></li>";
+    }
+    lista += "</ul>";
+    if (hayTareas) {
+        html += lista;
+    } else {
+        html += '<p class="nota">No hay tareas pendientes.</p>';
+    }
+
     if (estado.salud && estado.salud.problemas_datos.length > 0) {
         html += '<div class="aviso"><strong>Datos heredados para revisar</strong>';
-        html += "<p>La base existente se conserva sin cambios automaticos. Se encontraron estos problemas:</p><ul>";
+        html += "<p>La base existente se conserva sin cambios automáticos. Se encontraron estos problemas:</p><ul>";
         for (let indice = 0; indice < estado.salud.problemas_datos.length; indice += 1) {
             html += "<li>" + esc(estado.salud.problemas_datos[indice]) + "</li>";
         }
@@ -471,10 +519,14 @@ function renderInicio() {
         html += "<p>No se detectaron problemas al revisar los datos guardados.</p></div>";
     }
 
-    html += '<h3>Flujo de trabajo</h3>';
-    html += '<p class="nota">1. Cargar sedes, socios y catalogo. 2. Registrar una solicitud o reserva. ';
-    html += "3. Crear y mover el remito interbibliotecario. 4. Entregar el prestamo y registrar la devolucion. ";
-    html += "5. Consultar los reportes.</p>";
+    html += "<h3>Flujo de trabajo</h3>";
+    html += '<ol class="pasos">';
+    html += "<li><strong>Cargar datos</strong>Sedes, socios, libros y ejemplares.</li>";
+    html += "<li><strong>Solicitar o reservar</strong>La solicitud aparta una copia; la reserva espera en cola.</li>";
+    html += "<li><strong>Enviar entre sedes</strong>El remito se empaqueta, se despacha y se recibe.</li>";
+    html += "<li><strong>Entregar y devolver</strong>La entrega crea el préstamo; la devolución calcula la multa.</li>";
+    html += "<li><strong>Consultar reportes</strong>Vencidos, disponibilidad, pedidos y envíos.</li>";
+    html += "</ol>";
     html += "</section>";
     return html;
 }
@@ -496,18 +548,18 @@ function renderSedes() {
     const horario = sedeEditada ? sedeEditada.horario : "";
 
     let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Sedes</h2>';
-    html += "<p>Codigo interno, datos de contacto y estado de atencion.</p></div></div>";
+    html += "<p>Código interno, dirección, datos de contacto, horario y estado de cada sede.</p></div></div>";
     html += '<div class="grilla-dos"><div>';
     html += '<form class="formulario" data-form="sede">';
     html += "<h3>" + (sedeEditada ? "Editar sede" : "Nueva sede") + "</h3>";
-    html += '<div class="campo"><label>Codigo</label>';
+    html += '<div class="campo"><label>Código</label>';
     html += '<input name="codigo" required maxlength="40" value="' + esc(codigo) + '"' +
         (sedeEditada ? " disabled" : "") + "></div>";
     html += '<div class="campo"><label>Nombre</label><input name="nombre" required maxlength="200" value="' + esc(nombre) + '"></div>';
-    html += '<div class="campo"><label>Direccion</label><input name="direccion" required maxlength="200" value="' + esc(direccion) + '"></div>';
-    html += '<div class="campo"><label>Telefono</label><input name="telefono" required maxlength="40" value="' + esc(telefono) + '"></div>';
+    html += '<div class="campo"><label>Dirección</label><input name="direccion" required maxlength="200" value="' + esc(direccion) + '"></div>';
+    html += '<div class="campo"><label>Teléfono</label><input name="telefono" required maxlength="40" value="' + esc(telefono) + '"></div>';
     html += '<div class="campo"><label>Horario</label><input name="horario" required maxlength="11" inputmode="numeric" placeholder="08001800" value="' + esc(horario) + '">';
-    html += '<span class="campo-ayuda">Escribi solo los 8 numeros; los : y el - se agregan solos.</span></div>';
+    html += '<span class="campo-ayuda">Escriba solo los 8 números; los : y el - se agregan solos.</span></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">' +
         (sedeEditada ? "Guardar cambios" : "Crear sede") + "</button>";
     if (sedeEditada) {
@@ -515,8 +567,9 @@ function renderSedes() {
     }
     html += "</div></form></div><div>";
 
+    html += buscador("Buscar sede");
     html += '<div class="tabla-contenedor"><table><thead><tr>';
-    html += "<th>Codigo</th><th>Nombre</th><th>Direccion</th><th>Telefono</th><th>Horario</th><th>Estado</th><th>Acciones</th>";
+    html += "<th>Código</th><th>Nombre</th><th>Dirección</th><th>Teléfono</th><th>Horario</th><th>Estado</th><th>Acciones</th>";
     html += "</tr></thead><tbody>";
     if (sedes.length === 0) {
         html += '<tr><td colspan="7">No hay sedes cargadas.</td></tr>';
@@ -554,16 +607,16 @@ function renderSocios() {
         }
     }
     let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Socios</h2>';
-    html += "<p>Alta, edicion y habilitacion de socios.</p></div></div>";
+    html += "<p>Alta, edición y habilitación de socios.</p></div></div>";
     html += '<div class="grilla-dos"><div><form class="formulario" data-form="socio">';
     html += "<h3>" + (socioEditado ? "Editar socio" : "Nuevo socio") + "</h3>";
-    html += '<div class="campo"><label>Numero</label><input name="numero" type="number" min="1" required value="' +
+    html += '<div class="campo"><label>Número</label><input name="numero" type="number" min="1" required value="' +
         esc(socioEditado ? socioEditado.numero : "") + '"' + (socioEditado ? " disabled" : "") + "></div>";
     html += '<div class="campo"><label>Nombre</label><input name="nombre" required maxlength="200" value="' +
         esc(socioEditado ? socioEditado.nombre : "") + '"></div>';
     html += '<div class="campo"><label>Email</label><input name="email" type="email" required maxlength="254" value="' +
         esc(socioEditado ? socioEditado.email : "") + '"></div>';
-    html += '<div class="campo"><label>Telefono</label><input name="telefono" required maxlength="40" value="' +
+    html += '<div class="campo"><label>Teléfono</label><input name="telefono" required maxlength="40" value="' +
         esc(socioEditado ? socioEditado.telefono : "") + '"></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">' +
         (socioEditado ? "Guardar cambios" : "Crear socio") + "</button>";
@@ -571,7 +624,8 @@ function renderSocios() {
         html += '<button class="boton secundario" type="button" data-accion="cancelar-edicion-socio">Cancelar</button>';
     }
     html += "</div></form></div><div>";
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>Numero</th><th>Nombre</th><th>Email</th><th>Telefono</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+    html += buscador("Buscar socio");
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>Número</th><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
     if (socios.length === 0) {
         html += '<tr><td colspan="6">No hay socios cargados.</td></tr>';
     }
@@ -602,19 +656,19 @@ function renderCatalogo() {
             }
         }
     }
-    let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Catalogo y ejemplares</h2>';
-    html += "<p>El libro es la obra; cada ejemplar es una copia fisica de una sede.</p></div></div>";
+    let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Catálogo y ejemplares</h2>';
+    html += "<p>El libro es la obra; cada ejemplar es una copia física de una sede.</p></div></div>";
     html += '<div class="grilla-dos"><div><form class="formulario" data-form="libro">';
     html += "<h3>" + (libroEditado ? "Editar libro" : "Nuevo libro") + "</h3>";
     html += '<div class="campo"><label>ISBN interno</label><input name="isbn" required maxlength="40" value="' +
         esc(libroEditado ? libroEditado.isbn : "") + '"' + (libroEditado ? " disabled" : "") + "></div>";
-    html += '<div class="campo"><label>Titulo</label><input name="titulo" required maxlength="200" value="' +
+    html += '<div class="campo"><label>Título</label><input name="titulo" required maxlength="200" value="' +
         esc(libroEditado ? libroEditado.titulo : "") + '"></div>';
     html += '<div class="campo"><label>Autor</label><input name="autor" required maxlength="200" value="' +
         esc(libroEditado ? libroEditado.autor : "") + '"></div>';
-    html += '<div class="campo"><label>Anio</label><input name="anio" type="number" min="1000" required value="' +
+    html += '<div class="campo"><label>Año</label><input name="anio" type="number" min="1000" required value="' +
         esc(libroEditado ? libroEditado.anio : "") + '"></div>';
-    html += '<div class="campo"><label>Genero</label><input name="genero" required maxlength="100" value="' +
+    html += '<div class="campo"><label>Género</label><input name="genero" required maxlength="100" value="' +
         esc(libroEditado ? libroEditado.genero : "") + '"></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">' +
         (libroEditado ? "Guardar cambios" : "Crear libro") + "</button>";
@@ -622,7 +676,8 @@ function renderCatalogo() {
         html += '<button class="boton secundario" type="button" data-accion="cancelar-edicion-libro">Cancelar</button>';
     }
     html += "</div></form></div><div>";
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>ISBN</th><th>Titulo</th><th>Autor</th><th>Anio</th><th>Genero</th><th>Acciones</th></tr></thead><tbody>';
+    html += buscador("Buscar libro");
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>ISBN</th><th>Título</th><th>Autor</th><th>Año</th><th>Género</th><th>Acciones</th></tr></thead><tbody>';
     if (libros.length === 0) {
         html += '<tr><td colspan="6">No hay libros cargados.</td></tr>';
     }
@@ -636,10 +691,10 @@ function renderCatalogo() {
     html += "</tbody></table></div></div></div></section>";
 
     html += '<section class="panel"><div class="panel-encabezado"><div><h2>Ejemplares y disponibilidad</h2>';
-    html += "<p>La sede de pertenencia no cambia; la ubicacion actual indica donde esta la copia.</p></div></div>";
+    html += "<p>La sede de pertenencia no cambia; la ubicación actual indica dónde está la copia.</p></div></div>";
     html += '<div class="grilla-dos"><div><form class="formulario" data-form="ejemplar">';
     html += "<h3>Nuevo ejemplar</h3>";
-    html += '<div class="campo"><label>Codigo</label><input name="codigo" required maxlength="40"></div>';
+    html += '<div class="campo"><label>Código</label><input name="codigo" required maxlength="40"></div>';
     html += '<div class="campo"><label>Libro</label><select name="libro_isbn" required>' + opcionesLibros(null, "Seleccione un libro") + "</select></div>";
     html += '<div class="campo"><label>Sede de pertenencia</label><select name="sede_pertenencia" required>' + opcionesSedes(null, "Seleccione una sede", true) + "</select></div>";
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Crear ejemplar</button></div>';
@@ -660,14 +715,14 @@ function renderCatalogo() {
         }
         filtrados.push(ejemplar);
     }
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>Codigo</th><th>Libro</th><th>Pertenencia</th><th>Ubicacion</th><th>Disponibilidad</th><th>Estado fisico</th><th>Motivo / acciones</th></tr></thead><tbody>';
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>Código</th><th>Libro</th><th>Pertenencia</th><th>Ubicación</th><th>Disponibilidad</th><th>Estado físico</th><th>Motivo / acciones</th></tr></thead><tbody>';
     if (filtrados.length === 0) {
         html += '<tr><td colspan="7">No hay ejemplares para el filtro elegido.</td></tr>';
     }
     for (let indice = 0; indice < filtrados.length; indice += 1) {
         const ejemplar = filtrados[indice];
         html += "<tr><td>" + esc(ejemplar.codigo) + "</td><td>" + esc(ejemplar.libro_titulo) + "</td><td>" +
-            esc(ejemplar.sede_pertenencia) + "</td><td>" + esc(ejemplar.ubicacion_actual || "En transito") + "</td><td>" +
+            esc(ejemplar.sede_pertenencia) + "</td><td>" + esc(ejemplar.ubicacion_actual || "En tránsito") + "</td><td>" +
             insignia(ejemplar.estado_disponibilidad) + "</td><td>" + insignia(ejemplar.estado_fisico) + "</td>";
         html += '<td><div class="acciones-tabla"><span class="nota">' + esc(ejemplar.motivo) + "</span>";
         if (ejemplar.estado_disponibilidad === "en_reparacion") {
@@ -692,37 +747,50 @@ function renderSolicitudes() {
             });
         }
     }
-    let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Solicitudes</h2>';
-    html += "<p>Una solicitud aparta un ejemplar. La interbibliotecaria necesita un remito recibido antes de entregarse.</p></div></div>";
-    html += '<div class="grilla-dos"><div>';
+    let html = '<section class="panel"><div class="panel-encabezado"><h2>Solicitudes</h2>';
+    html += "<p>Una solicitud aparta un ejemplar. La interbibliotecaria necesita un remito recibido antes de entregarse.</p></div>";
+    html += '<div class="formularios-fila">';
     html += '<form class="formulario" data-form="solicitud">';
     html += "<h3>Nueva solicitud</h3>";
+    html += '<div class="campos">';
     html += '<div class="campo"><label>Socio</label><select name="socio_numero" required>' + opcionesSocios(null, "Seleccione un socio") + "</select></div>";
     html += '<div class="campo"><label>Libro</label><select name="libro_isbn" required>' + opcionesLibros(null, "Seleccione un libro") + "</select></div>";
     html += '<div class="campo"><label>Ejemplar</label><select name="ejemplar_codigo" required>' + opcionesEjemplares(null, "Seleccione un ejemplar") + "</select></div>";
     html += '<div class="campo"><label>Sede de origen</label><select name="sede_origen" required>' + opcionesSedes(null, "Seleccione una sede", true) + "</select></div>";
     html += '<div class="campo"><label>Sede de destino</label><select name="sede_destino" required>' + opcionesSedes(null, "Seleccione una sede", true) + "</select></div>";
-    html += '<div class="campo"><label>Fecha</label><input name="fecha_solicitud" type="date" required value="' + hoyISO() + '"></div>';
     html += '<div class="campo"><label>Tipo</label><select name="tipo" required><option value="local">Local</option><option value="interbibliotecario">Interbibliotecario</option></select></div>';
+    html += '<div class="campo"><label>Fecha</label><input name="fecha_solicitud" type="date" required value="' + hoyISO() + '"></div>';
+    html += "</div>";
+    html += '<span class="campo-ayuda">Al elegir el libro se listan solo sus ejemplares. Al elegir el ejemplar se completa la sede de origen, y el tipo se sugiere según las sedes.</span>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Registrar solicitud</button></div>';
     html += "</form>";
-    html += '<form class="formulario" data-form="entrega" style="margin-top:1rem">';
+    html += '<form class="formulario" data-form="entrega">';
     html += "<h3>Entregar una solicitud</h3>";
     html += '<div class="campo"><label>Solicitud pendiente</label><select name="solicitud_numero" required>' + opciones(pendientes, null, "Seleccione una solicitud") + "</select></div>";
-    html += '<div class="campo"><label>Fecha de prestamo</label><input name="fecha_prestamo" type="date" required value="' + hoyISO() + '"></div>';
+    html += '<div class="campo"><label>Fecha de préstamo</label><input name="fecha_prestamo" type="date" required value="' + hoyISO() + '"></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Entregar</button></div>';
-    html += "</form></div><div>";
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>#</th><th>Socio</th><th>Libro</th><th>Ejemplar</th><th>Recorrido</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Remito</th><th>Acciones</th></tr></thead><tbody>';
+    html += "</form></div>";
+
+    html += buscador("Buscar por socio, libro, ejemplar o estado");
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>#</th><th>Socio</th><th>Libro</th><th>Recorrido</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Remito</th><th>Acciones</th></tr></thead><tbody>';
     if (solicitudes.length === 0) {
-        html += '<tr><td colspan="10">No hay solicitudes registradas.</td></tr>';
+        html += '<tr><td colspan="9">No hay solicitudes registradas.</td></tr>';
     }
     for (let indice = 0; indice < solicitudes.length; indice += 1) {
         const solicitud = solicitudes[indice];
+        let celdaRemito = "-";
+        if (solicitud.remito_codigo) {
+            celdaRemito = esc(solicitud.remito_codigo);
+            const remito = buscarRemito(solicitud.remito_codigo);
+            if (remito) {
+                celdaRemito += " " + insignia(remito.estado_actual);
+            }
+        }
         html += "<tr><td>" + esc(solicitud.numero) + "</td><td>" + esc(solicitud.socio_nombre) + "</td><td>" +
-            esc(solicitud.libro_titulo) + "</td><td>" + esc(solicitud.ejemplar_codigo) + "</td><td>" +
-            esc(solicitud.sede_origen) + " a " + esc(solicitud.sede_destino) + "</td><td>" +
-            esc(solicitud.fecha_solicitud) + "</td><td>" + esc(nombreEstado(solicitud.tipo)) + "</td><td>" +
-            insignia(solicitud.estado) + "</td><td>" + esc(solicitud.remito_codigo || "-") + "</td>";
+            esc(solicitud.libro_titulo) + '<span class="dato-secundario">Ejemplar ' + esc(solicitud.ejemplar_codigo) + "</span></td><td>" +
+            '<span class="recorrido">' + esc(solicitud.sede_origen) + " → " + esc(solicitud.sede_destino) + "</span></td><td>" +
+            esc(fechaTexto(solicitud.fecha_solicitud)) + "</td><td>" + esc(nombreEstado(solicitud.tipo)) + "</td><td>" +
+            insignia(solicitud.estado) + "</td><td>" + celdaRemito + "</td>";
         html += '<td><div class="acciones-tabla">';
         if (solicitud.estado === "pendiente") {
             if (solicitud.tipo === "interbibliotecario" && !solicitud.remito_codigo) {
@@ -734,7 +802,7 @@ function renderSolicitudes() {
         }
         html += "</div></td></tr>";
     }
-    html += "</tbody></table></div></div></div></section>";
+    html += "</tbody></table></div></section>";
     return html;
 }
 
@@ -750,6 +818,7 @@ function renderReservas() {
     html += '<div class="campo"><label>Fecha</label><input name="fecha_reserva" type="date" required value="' + hoyISO() + '"></div>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Registrar reserva</button></div>';
     html += "</form></div><div>";
+    html += buscador("Buscar reserva");
     html += '<div class="tabla-contenedor"><table><thead><tr><th>#</th><th>Socio</th><th>Libro</th><th>Sede</th><th>Fecha</th><th>Estado</th><th>Ejemplar</th><th>Solicitud</th><th>Acciones</th></tr></thead><tbody>';
     if (reservas.length === 0) {
         html += '<tr><td colspan="9">No hay reservas registradas.</td></tr>';
@@ -758,7 +827,7 @@ function renderReservas() {
         const reserva = reservas[indice];
         html += "<tr><td>" + esc(reserva.numero) + "</td><td>" + esc(reserva.socio_nombre) + "</td><td>" +
             esc(reserva.libro_titulo) + "</td><td>" + esc(reserva.codigo_sede) + "</td><td>" +
-            esc(reserva.fecha_reserva) + "</td><td>" + insignia(reserva.estado) + "</td><td>" +
+            esc(fechaTexto(reserva.fecha_reserva)) + "</td><td>" + insignia(reserva.estado) + "</td><td>" +
             esc(reserva.ejemplar_codigo || "-") + "</td><td>" + esc(reserva.solicitud_numero || "-") + "</td>";
         html += '<td><div class="acciones-tabla">';
         if (reserva.estado === "pendiente" || reserva.estado === "asignada") {
@@ -783,33 +852,47 @@ function renderPrestamos() {
             });
         }
     }
-    let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Prestamos y devoluciones</h2>';
-    html += "<p>La multa se calcula con los dias de atraso configurados. Una devolucion fuera de la sede de pertenencia deja la copia pendiente de retorno.</p></div></div>";
-    html += '<div class="grilla-dos"><div><form class="formulario" data-form="devolucion">';
-    html += "<h3>Registrar devolucion</h3>";
-    html += '<div class="campo"><label>Prestamo activo</label><select name="numero" required>' + opciones(activos, null, "Seleccione un prestamo") + "</select></div>";
-    html += '<div class="campo"><label>Fecha de devolucion</label><input name="fecha_devolucion" type="date" required value="' + hoyISO() + '"></div>';
-    html += '<div class="campo"><label>Sede de devolucion</label><select name="sede_devolucion" required>' + opcionesSedes(null, "Seleccione una sede", true) + "</select></div>";
-    html += '<div class="campo"><label>Estado fisico</label><select name="estado_fisico" required><option value="bueno">Bueno</option><option value="deteriorado">Deteriorado</option><option value="requiere_reparacion">Requiere reparacion</option></select></div>';
-    html += '<div class="acciones-formulario"><button class="boton" type="submit">Registrar devolucion</button></div>';
-    html += "</form></div><div>";
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>#</th><th>Socio</th><th>Libro</th><th>Recorrido</th><th>Prestamo</th><th>Vence</th><th>Devolucion</th><th>Estado</th><th>Multa</th></tr></thead><tbody>';
+    let html = '<section class="panel"><div class="panel-encabezado"><h2>Préstamos y devoluciones</h2>';
+    html += "<p>La multa se calcula con los días de atraso. Una devolución fuera de la sede de pertenencia deja la copia pendiente de retorno.</p></div>";
+    html += '<form class="formulario" data-form="devolucion" style="margin-bottom:1.1rem">';
+    html += "<h3>Registrar devolución</h3>";
+    html += '<div class="campos">';
+    html += '<div class="campo"><label>Préstamo activo</label><select name="numero" required>' + opciones(activos, null, "Seleccione un préstamo") + "</select></div>";
+    html += '<div class="campo"><label>Fecha de devolución</label><input name="fecha_devolucion" type="date" required value="' + hoyISO() + '"></div>';
+    html += '<div class="campo"><label>Sede de devolución</label><select name="sede_devolucion" required>' + opcionesSedes(null, "Seleccione una sede", true) + "</select></div>";
+    html += '<div class="campo"><label>Estado físico del material</label><select name="estado_fisico" required><option value="bueno">Bueno</option><option value="deteriorado">Deteriorado</option><option value="requiere_reparacion">Requiere reparación</option></select></div>';
+    html += "</div>";
+    html += '<div class="acciones-formulario"><button class="boton" type="submit">Registrar devolución</button></div>';
+    html += "</form>";
+
+    html += buscador("Buscar por socio, libro o estado");
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>#</th><th>Socio</th><th>Libro</th><th>Recorrido</th><th>Préstamo</th><th>Vence</th><th>Devolución</th><th>Estado</th><th>Multa</th></tr></thead><tbody>';
     if (prestamos.length === 0) {
-        html += '<tr><td colspan="9">No hay prestamos registrados.</td></tr>';
+        html += '<tr><td colspan="9">No hay préstamos registrados.</td></tr>';
     }
     for (let indice = 0; indice < prestamos.length; indice += 1) {
         const prestamo = prestamos[indice];
+        const vencido = prestamo.estado === "activo" && prestamo.dias_atraso > 0;
         let multa = moneda(prestamo.multa);
+        let celdaEstado = insignia(prestamo.estado);
+        let celdaDevolucion = "-";
         if (prestamo.estado === "activo") {
             multa = moneda(prestamo.multa_estimada) + " estimada";
         }
-        html += "<tr><td>" + esc(prestamo.numero) + "</td><td>" + esc(prestamo.socio_nombre) + "</td><td>" +
-            esc(prestamo.libro_titulo || prestamo.ejemplar_codigo) + "</td><td>" + esc(prestamo.sede_origen) +
-            " a " + esc(prestamo.sede_destino) + "</td><td>" + esc(prestamo.fecha_prestamo) + "</td><td>" +
-            esc(prestamo.fecha_vencimiento) + "</td><td>" + esc(prestamo.fecha_devolucion || "-") + "</td><td>" +
-            insignia(prestamo.estado) + "</td><td>" + esc(multa) + "</td></tr>";
+        if (vencido) {
+            celdaEstado = '<span class="insignia peligro">Vencido · ' + esc(prestamo.dias_atraso) + " días</span>";
+        }
+        if (prestamo.fecha_devolucion) {
+            celdaDevolucion = esc(fechaTexto(prestamo.fecha_devolucion)) + '<span class="dato-secundario">En ' +
+                esc(prestamo.sede_devolucion) + " · " + esc(nombreEstado(prestamo.estado_fisico_devolucion)) + "</span>";
+        }
+        html += "<tr" + (vencido ? ' class="fila-vencida"' : "") + "><td>" + esc(prestamo.numero) + "</td><td>" + esc(prestamo.socio_nombre) + "</td><td>" +
+            esc(prestamo.libro_titulo || prestamo.ejemplar_codigo) + '<span class="dato-secundario">Ejemplar ' + esc(prestamo.ejemplar_codigo) + "</span></td><td>" +
+            '<span class="recorrido">' + esc(prestamo.sede_origen) + " → " + esc(prestamo.sede_destino) + "</span></td><td>" +
+            esc(fechaTexto(prestamo.fecha_prestamo)) + "</td><td>" + esc(fechaTexto(prestamo.fecha_vencimiento)) + "</td><td>" +
+            celdaDevolucion + "</td><td>" + celdaEstado + "</td><td>" + esc(multa) + "</td></tr>";
     }
-    html += "</tbody></table></div></div></div></section>";
+    html += "</tbody></table></div></section>";
     return html;
 }
 
@@ -830,67 +913,64 @@ function renderRemitos() {
         return numeroRemito(b.codigo) - numeroRemito(a.codigo);
     });
 
-    let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Remitos e historial</h2>';
-    html += "<p>El remito registra el empaque, el despacho y la recepcion. El historial se guarda en SQLite.</p></div></div>";
-    html += '<div class="grilla-dos"><div><form class="formulario" data-form="retorno">';
+    let html = '<section class="panel"><div class="panel-encabezado"><h2>Remitos e historial</h2>';
+    html += "<p>Cada remito recorre los estados pendiente de empaque, empaquetado, despachado y recibido. El trayecto muestra el momento registrado de cada paso.</p></div>";
+    html += '<form class="formulario" data-form="retorno" style="margin-bottom:1.1rem">';
     html += "<h3>Crear remito de retorno</h3>";
+    html += '<div class="campos">';
     html += '<div class="campo"><label>Ejemplar pendiente de retorno</label><select name="ejemplar_codigo" required>' +
         opciones(pendientesRetorno, null, "Seleccione un ejemplar") + "</select></div>";
-    html += '<div class="campo"><label>Fecha de creacion</label><input name="fecha_creacion" type="date" required value="' + hoyISO() + '"></div>';
+    html += '<div class="campo"><label>Fecha de creación</label><input name="fecha_creacion" type="date" required value="' + hoyISO() + '"></div>';
+    html += "</div>";
+    html += '<span class="campo-ayuda">Los remitos de préstamo se crean desde la sección Solicitudes.</span>';
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Crear remito</button></div>';
     html += "</form>";
-    html += '<p class="nota">Los remitos de prestamo se crean desde la seccion Solicitudes.</p></div><div>';
-    html += '<div class="tabla-contenedor"><table><thead><tr><th>Codigo</th><th>Motivo</th><th>Recorrido</th><th>Creacion</th><th>Estado</th><th>Ejemplares</th><th>Acciones</th></tr></thead><tbody>';
+
+    html += buscador("Buscar por código, sede, ejemplar o estado");
     if (remitos.length === 0) {
-        html += '<tr><td colspan="7">No hay remitos registrados.</td></tr>';
+        html += '<p class="nota">No hay remitos registrados.</p>';
     }
+    html += '<div class="remitos">';
     for (let indice = 0; indice < remitos.length; indice += 1) {
         const remito = remitos[indice];
-        let codigos = [];
+        html += '<article class="remito">';
+        html += '<div class="remito-encabezado"><div class="remito-titulo">';
+        html += '<span class="remito-codigo">' + esc(remito.codigo) + "</span>";
+        html += insignia(remito.motivo);
+        html += '<span class="recorrido">' + esc(remito.sede_origen) + " → " + esc(remito.sede_destino) + "</span>";
+        html += "</div>" + insignia(remito.estado_actual) + "</div>";
+
         for (let posicion = 0; posicion < remito.asignaciones.length; posicion += 1) {
-            codigos.push(remito.asignaciones[posicion].ejemplar_codigo);
-        }
-        html += "<tr><td>" + esc(remito.codigo) + "</td><td>" + esc(nombreEstado(remito.motivo)) + "</td><td>" +
-            esc(remito.sede_origen) + " a " + esc(remito.sede_destino) + "</td><td>" +
-            esc(remito.fecha_creacion) + "</td><td>" + insignia(remito.estado_actual) + "</td><td>" +
-            esc(codigos.join(", ")) + "</td>";
-        html += '<td><div class="acciones-tabla">';
-        if (remito.estado_actual === "pendiente_empaque") {
-            html += '<button class="boton secundario pequeno" type="button" data-accion="empaquetar-remito" data-codigo="' +
-                esc(remito.codigo) + '">Empaquetar</button>';
-        } else if (remito.estado_actual === "empaquetado") {
-            html += '<button class="boton secundario pequeno" type="button" data-accion="despachar-remito" data-codigo="' +
-                esc(remito.codigo) + '">Despachar</button>';
-        } else if (remito.estado_actual === "despachado") {
-            html += '<form data-form="recepcion" class="acciones-formulario">';
-            html += '<input type="hidden" name="codigo" value="' + esc(remito.codigo) + '">';
-            html += '<select name="estado_fisico" required aria-label="Estado fisico al recibir">';
-            html += '<option value="">Estado observado...</option><option value="bueno">Bueno</option>';
-            html += '<option value="deteriorado">Deteriorado</option><option value="requiere_reparacion">Requiere reparacion</option></select>';
-            html += '<button class="boton secundario pequeno" type="submit">Recibir</button></form>';
-        }
-        html += "</div>";
-        html += '<details class="detalle-remito"><summary>Historial</summary><ul>';
-        if (remito.historial.length === 0) {
-            html += "<li>Sin eventos.</li>";
-        }
-        for (let posicion = 0; posicion < remito.historial.length; posicion += 1) {
-            const evento = remito.historial[posicion];
-            html += "<li>" + esc(evento.orden) + ". " + esc(nombreEstado(evento.estado)) + " - " + esc(evento.momento) + "</li>";
-        }
-        html += "</ul></details>";
-        if (remito.asignaciones.length > 0) {
-            html += '<details class="detalle-remito"><summary>Recepcion</summary><ul>';
-            for (let posicion = 0; posicion < remito.asignaciones.length; posicion += 1) {
-                const asignacion = remito.asignaciones[posicion];
-                html += "<li>" + esc(asignacion.ejemplar_codigo) + ": " +
-                    esc(asignacion.estado_fisico_recepcion ? nombreEstado(asignacion.estado_fisico_recepcion) : "sin registrar") + "</li>";
+            const asignacion = remito.asignaciones[posicion];
+            let detalle = "Ejemplar " + asignacion.ejemplar_codigo;
+            if (asignacion.numero_solicitud !== null && asignacion.numero_solicitud !== undefined) {
+                detalle += " · Solicitud #" + asignacion.numero_solicitud;
             }
-            html += "</ul></details>";
+            if (asignacion.estado_fisico_recepcion) {
+                detalle += " · Recibido en estado: " + nombreEstado(asignacion.estado_fisico_recepcion);
+            }
+            html += '<p class="nota">' + esc(detalle) + "</p>";
         }
-        html += "</td></tr>";
+
+        html += renderTrayecto(remito);
+
+        if (remito.estado_actual === "pendiente_empaque") {
+            html += '<div class="remito-acciones"><button class="boton pequeno" type="button" data-accion="empaquetar-remito" data-codigo="' +
+                esc(remito.codigo) + '">Empaquetar</button></div>';
+        } else if (remito.estado_actual === "empaquetado") {
+            html += '<div class="remito-acciones"><button class="boton pequeno" type="button" data-accion="despachar-remito" data-codigo="' +
+                esc(remito.codigo) + '">Despachar</button></div>';
+        } else if (remito.estado_actual === "despachado") {
+            html += '<div class="remito-acciones"><form data-form="recepcion">';
+            html += '<input type="hidden" name="codigo" value="' + esc(remito.codigo) + '">';
+            html += '<select name="estado_fisico" required aria-label="Estado físico al recibir">';
+            html += '<option value="">Estado observado...</option><option value="bueno">Bueno</option>';
+            html += '<option value="deteriorado">Deteriorado</option><option value="requiere_reparacion">Requiere reparación</option></select>';
+            html += '<button class="boton pequeno" type="submit">Recibir</button></form></div>';
+        }
+        html += "</article>";
     }
-    html += "</tbody></table></div></div></div></section>";
+    html += "</div></section>";
     return html;
 }
 
@@ -910,10 +990,10 @@ function renderReportes() {
         ["activos", "Activos y vencidos"],
         ["disponibilidad", "Disponibilidad"],
         ["libros", "Libros solicitados"],
-        ["movimiento", "Movimiento de envios"],
+        ["movimiento", "Movimiento de envíos"],
     ];
     let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Reportes</h2>';
-    html += "<p>Los reportes se generan con el patron Factory Method y consultan la base mediante el ORM.</p></div></div>";
+    html += "<p>Los reportes se generan con el patrón Factory Method y consultan la base mediante el ORM.</p></div></div>";
     html += '<div class="botones-reportes">';
     for (let indice = 0; indice < botones.length; indice += 1) {
         const activo = estado.reporte === botones[indice][0] ? " activo" : "";
@@ -936,7 +1016,7 @@ function renderReportes() {
         html += '<div class="campo"><label>Sede origen</label><select name="sede_origen">' + opcionesSedes(filtros.sede_origen || null, "Todas", false) + "</select></div>";
         html += '<div class="campo"><label>Sede destino</label><select name="sede_destino">' + opcionesSedes(filtros.sede_destino || null, "Todas", false) + "</select></div>";
     } else {
-        html += '<p class="nota">Agrupado por sede de origen y destino, con tiempos de transito y recepcion.</p>';
+        html += '<p class="nota">Agrupado por sede de origen y destino, con tiempos de tránsito y recepción.</p>';
     }
     html += '<div class="acciones-formulario"><button class="boton" type="submit">Generar reporte</button></div>';
     html += "</form>";
@@ -959,7 +1039,7 @@ function pintarReporte() {
         return;
     }
     if (estado.filasReporte.length === 0) {
-        contenedor.innerHTML = '<div class="aviso neutro"><strong>Sin datos</strong><p>No hay informacion para los filtros elegidos.</p></div>';
+        contenedor.innerHTML = '<div class="aviso neutro"><strong>Sin datos</strong><p>No hay información para los filtros elegidos.</p></div>';
         return;
     }
     const columnas = Object.keys(estado.filasReporte[0]);
@@ -1044,16 +1124,263 @@ async function cargarReporte(nombre) {
     }
 }
 
+function fechaTexto(valor) {
+    if (valor === null || valor === undefined || valor === "") {
+        return "-";
+    }
+    const texto = String(valor);
+    if (texto.length < 10) {
+        return texto;
+    }
+    const anio = texto.substring(0, 4);
+    const mes = texto.substring(5, 7);
+    const dia = texto.substring(8, 10);
+    return dia + "/" + mes + "/" + anio;
+}
+
+function momentoTexto(valor) {
+    if (valor === null || valor === undefined || valor === "") {
+        return "-";
+    }
+    const texto = String(valor);
+    const fecha = fechaTexto(texto);
+    if (texto.length < 16) {
+        return fecha;
+    }
+    return fecha + " " + texto.substring(11, 16);
+}
+
+function buscador(texto) {
+    return '<div class="buscador"><input type="search" data-buscador placeholder="' + esc(texto) +
+        '" aria-label="' + esc(texto) + '"></div>';
+}
+
+function filtrarElementos(campo) {
+    const panel = campo.closest(".panel");
+    if (!panel) {
+        return;
+    }
+    const texto = campo.value.trim().toLowerCase();
+    const elementos = panel.querySelectorAll("tbody tr, .remito");
+    for (let indice = 0; indice < elementos.length; indice += 1) {
+        const elemento = elementos[indice];
+        const contenido = elemento.textContent.toLowerCase();
+        if (texto !== "" && contenido.indexOf(texto) < 0) {
+            elemento.hidden = true;
+        } else {
+            elemento.hidden = false;
+        }
+    }
+}
+
+function buscarEjemplar(codigo) {
+    const ejemplares = estado.listados ? estado.listados.ejemplares : [];
+    for (let indice = 0; indice < ejemplares.length; indice += 1) {
+        if (ejemplares[indice].codigo === codigo) {
+            return ejemplares[indice];
+        }
+    }
+    return null;
+}
+
+function buscarRemito(codigo) {
+    const remitos = estado.listados ? estado.listados.remitos : [];
+    for (let indice = 0; indice < remitos.length; indice += 1) {
+        if (remitos[indice].codigo === codigo) {
+            return remitos[indice];
+        }
+    }
+    return null;
+}
+
+// Cuenta lo que espera una accion del personal. Solo suma datos que la API
+// ya calculo (estados y dias de atraso); no decide reglas de negocio.
+function calcularPendientes() {
+    const pendientes = {
+        solicitudes: 0,
+        reservas: 0,
+        prestamos: 0,
+        vencidos: 0,
+        remitos: 0,
+        retornos: 0,
+        reparacion: 0,
+    };
+    const listados = estado.listados;
+    for (let indice = 0; indice < listados.solicitudes.length; indice += 1) {
+        if (listados.solicitudes[indice].estado === "pendiente") {
+            pendientes.solicitudes += 1;
+        }
+    }
+    for (let indice = 0; indice < listados.reservas.length; indice += 1) {
+        const estadoReserva = listados.reservas[indice].estado;
+        if (estadoReserva === "pendiente" || estadoReserva === "asignada") {
+            pendientes.reservas += 1;
+        }
+    }
+    for (let indice = 0; indice < listados.prestamos.length; indice += 1) {
+        const prestamo = listados.prestamos[indice];
+        if (prestamo.estado === "activo") {
+            pendientes.prestamos += 1;
+            if (prestamo.dias_atraso > 0) {
+                pendientes.vencidos += 1;
+            }
+        }
+    }
+    for (let indice = 0; indice < listados.remitos.length; indice += 1) {
+        const estadoRemito = listados.remitos[indice].estado_actual;
+        if (estadoRemito === "pendiente_empaque" || estadoRemito === "empaquetado" || estadoRemito === "despachado") {
+            pendientes.remitos += 1;
+        }
+    }
+    for (let indice = 0; indice < listados.ejemplares.length; indice += 1) {
+        const disponibilidad = listados.ejemplares[indice].estado_disponibilidad;
+        if (disponibilidad === "pendiente_retorno") {
+            pendientes.retornos += 1;
+        }
+        if (disponibilidad === "en_reparacion") {
+            pendientes.reparacion += 1;
+        }
+    }
+    return pendientes;
+}
+
+function actualizarContadores() {
+    const pendientes = calcularPendientes();
+    const contadores = document.querySelectorAll(".menu [data-contador]");
+    for (let indice = 0; indice < contadores.length; indice += 1) {
+        const contador = contadores[indice];
+        const cantidad = pendientes[contador.dataset.contador];
+        contador.textContent = cantidad;
+        contador.hidden = cantidad === 0;
+        contador.classList.remove("urgente");
+        if (contador.dataset.contador === "prestamos" && pendientes.vencidos > 0) {
+            contador.classList.add("urgente");
+            contador.title = pendientes.vencidos + " vencidos";
+        }
+    }
+}
+
+// Une cada etiqueta con su campo para que un clic en el texto enfoque el
+// control y los lectores de pantalla anuncien el nombre correcto.
+function asociarEtiquetas(contenedor) {
+    const campos = contenedor.querySelectorAll(".campo");
+    for (let indice = 0; indice < campos.length; indice += 1) {
+        const etiqueta = campos[indice].querySelector("label");
+        const control = campos[indice].querySelector("input, select");
+        if (!etiqueta || !control) {
+            continue;
+        }
+        estado.numeroCampo += 1;
+        control.id = "campo-" + estado.numeroCampo;
+        etiqueta.htmlFor = control.id;
+    }
+}
+
+// Ayuda de carga del formulario de solicitud. Solo completa campos a partir
+// de lo que el usuario eligio; el backend valida igual todos los datos.
+function ayudarSolicitud(formulario, nombreCampo) {
+    const campos = formulario.elements;
+    if (nombreCampo === "libro_isbn") {
+        campos.ejemplar_codigo.innerHTML = opcionesEjemplares(null, "Seleccione un ejemplar", campos.libro_isbn.value);
+    }
+    if (nombreCampo === "ejemplar_codigo") {
+        const ejemplar = buscarEjemplar(campos.ejemplar_codigo.value);
+        if (ejemplar) {
+            campos.libro_isbn.value = ejemplar.libro_isbn;
+            campos.sede_origen.value = ejemplar.sede_pertenencia;
+        }
+    }
+    if (nombreCampo === "tipo") {
+        return;
+    }
+    const origen = campos.sede_origen.value;
+    const destino = campos.sede_destino.value;
+    if (origen !== "" && destino !== "") {
+        if (origen === destino) {
+            campos.tipo.value = "local";
+        } else {
+            campos.tipo.value = "interbibliotecario";
+        }
+    }
+}
+
+// Arma los pasos del trayecto de un remito: los estados ya registrados en el
+// historial con su momento, y los que todavia faltan.
+function pasosDeRemito(remito) {
+    const secuencia = ["pendiente_empaque", "empaquetado", "despachado", "recibido"];
+    const posicionActual = secuencia.indexOf(remito.estado_actual);
+    const cancelado = remito.estado_actual === "cancelado";
+    const pasos = [];
+    for (let indice = 0; indice < secuencia.length; indice += 1) {
+        const nombre = secuencia[indice];
+        let momento = null;
+        for (let posicion = 0; posicion < remito.historial.length; posicion += 1) {
+            if (remito.historial[posicion].estado === nombre) {
+                momento = remito.historial[posicion].momento;
+            }
+        }
+        let clase = "pendiente";
+        if (momento !== null || indice <= posicionActual) {
+            clase = "hecho";
+        }
+        if (indice === posicionActual) {
+            clase = "actual";
+        }
+        if (cancelado && clase === "pendiente") {
+            continue;
+        }
+        pasos.push({ nombre: nombre, momento: momento, clase: clase });
+    }
+    if (cancelado) {
+        let momentoCancelacion = null;
+        for (let posicion = 0; posicion < remito.historial.length; posicion += 1) {
+            if (remito.historial[posicion].estado === "cancelado") {
+                momentoCancelacion = remito.historial[posicion].momento;
+            }
+        }
+        pasos.push({ nombre: "cancelado", momento: momentoCancelacion, clase: "cancelado" });
+    }
+    return pasos;
+}
+
+function renderTrayecto(remito) {
+    const pasos = pasosDeRemito(remito);
+    let html = '<ol class="trayecto" aria-label="Trayecto del remito ' + esc(remito.codigo) + '">';
+    for (let indice = 0; indice < pasos.length; indice += 1) {
+        const paso = pasos[indice];
+        html += '<li class="' + paso.clase + '"><span class="paso-nombre">' + esc(nombreEstado(paso.nombre)) + "</span>";
+        if (paso.momento !== null) {
+            html += "<span>" + esc(momentoTexto(paso.momento)) + "</span>";
+        } else if (paso.clase === "pendiente") {
+            html += "<span>Falta</span>";
+        }
+        html += "</li>";
+    }
+    html += "</ol>";
+    return html;
+}
+
 function conectarEventos() {
     document.addEventListener("input", function (evento) {
         const campoHorario = evento.target.closest('input[name="horario"]');
         if (campoHorario) {
             formatearCampoHorario(campoHorario);
         }
+        const campoBuscador = evento.target.closest("[data-buscador]");
+        if (campoBuscador) {
+            filtrarElementos(campoBuscador);
+        }
+    });
+
+    document.addEventListener("change", function (evento) {
+        const formulario = evento.target.closest('form[data-form="solicitud"]');
+        if (formulario) {
+            ayudarSolicitud(formulario, evento.target.name);
+        }
     });
 
     document.addEventListener("click", async function (evento) {
-        const botonSeccion = evento.target.closest(".menu [data-seccion]");
+        const botonSeccion = evento.target.closest("[data-seccion]");
         if (botonSeccion) {
             await abrirSeccion(botonSeccion.dataset.seccion);
             return;
@@ -1086,10 +1413,19 @@ function conectarEventos() {
             return;
         }
         evento.preventDefault();
+        // El boton se bloquea mientras dura el pedido para no enviar dos veces.
+        const boton = formulario.querySelector('button[type="submit"]');
+        if (boton) {
+            boton.disabled = true;
+        }
         try {
             await manejarFormulario(formulario);
         } catch (error) {
             avisar(error.message, "error");
+        } finally {
+            if (boton) {
+                boton.disabled = false;
+            }
         }
     });
 }
@@ -1175,7 +1511,7 @@ async function manejarFormulario(formulario) {
         const numero = datos.solicitud_numero;
         delete datos.solicitud_numero;
         await pedir("POST", "/solicitudes/" + numero + "/entregar", datos);
-        await refrescar("Prestamo entregado.");
+        await refrescar("Préstamo entregado.");
         return;
     }
 
@@ -1190,7 +1526,7 @@ async function manejarFormulario(formulario) {
         const numero = Number(datos.numero);
         delete datos.numero;
         await pedir("POST", "/prestamos/" + numero + "/devolucion", datos);
-        await refrescar("Devolucion registrada.");
+        await refrescar("Devolución registrada.");
         return;
     }
 
@@ -1227,7 +1563,7 @@ async function manejarAccion(accion, datos) {
         return;
     }
     if (accion === "baja-sede") {
-        if (!window.confirm("Dar de baja la sede " + datos.codigo + "?")) {
+        if (!window.confirm("¿Dar de baja la sede " + datos.codigo + "?")) {
             return;
         }
         await pedir("POST", "/sedes/" + encodeURIComponent(datos.codigo) + "/baja", {});
@@ -1255,7 +1591,7 @@ async function manejarAccion(accion, datos) {
         return;
     }
     if (accion === "inhabilitar-socio") {
-        if (!window.confirm("Inhabilitar el socio " + datos.numero + "?")) {
+        if (!window.confirm("¿Inhabilitar el socio " + datos.numero + "?")) {
             return;
         }
         await pedir("POST", "/socios/" + encodeURIComponent(datos.numero) + "/inhabilitar", {});
@@ -1279,11 +1615,11 @@ async function manejarAccion(accion, datos) {
     }
     if (accion === "crear-remito-solicitud") {
         await pedir("POST", "/remitos/prestamo", { solicitud_numero: Number(datos.numero) });
-        await refrescar("Remito de prestamo creado.");
+        await refrescar("Remito de préstamo creado.");
         return;
     }
     if (accion === "cancelar-solicitud") {
-        if (!window.confirm("Cancelar la solicitud " + datos.numero + "?")) {
+        if (!window.confirm("¿Cancelar la solicitud " + datos.numero + "?")) {
             return;
         }
         await pedir("POST", "/solicitudes/" + encodeURIComponent(datos.numero) + "/cancelar", {});
@@ -1291,7 +1627,7 @@ async function manejarAccion(accion, datos) {
         return;
     }
     if (accion === "cancelar-reserva") {
-        if (!window.confirm("Cancelar la reserva " + datos.numero + "?")) {
+        if (!window.confirm("¿Cancelar la reserva " + datos.numero + "?")) {
             return;
         }
         await pedir("POST", "/reservas/" + encodeURIComponent(datos.numero) + "/cancelar", {});

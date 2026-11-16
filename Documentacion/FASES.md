@@ -84,7 +84,8 @@ alineada con el código y publicar el repositorio.
 - La API se publica bajo `/api` y devuelve JSON.
 - Flask sirve `index.html`, `styles.css` y `app.js`.
 - El frontend tiene secciones para inicio, sedes, socios, catálogo,
-  solicitudes, reservas, préstamos, remitos y reportes.
+  solicitudes, reservas, préstamos, remitos y reportes, agrupadas en el menú
+  por administración, circulación, logística y análisis.
 - El navegador no implementa reglas de negocio: llama a la API, muestra los
   errores y refresca los listados.
 - Los errores del dominio se traducen a HTTP 400, 404 o 409. Un error de
@@ -101,7 +102,10 @@ alineada con el código y publicar el repositorio.
     modificaciones atómicas;
   - `tests/test_patrones.py`: Factory y Observer;
   - `tests/test_reportes.py`: cálculos, filtros y tiempos;
-  - `tests/test_migracion.py`: respaldo, columna nueva y datos heredados.
+  - `tests/test_migracion.py`: respaldo, columna nueva y datos heredados;
+  - `tests/test_regresiones.py`: casos de la revisión final (cancelaciones,
+    fechas, reversión de fallos y datos recuperados inválidos);
+  - `tests/test_frontend.js`: funciones de la interfaz ejecutadas con Node.
 - Se eliminaron los módulos de consola Rich y la persistencia SQLite manual,
   que ya no forman parte de la arquitectura.
 - Se simplificaron métodos sin uso y se movieron imports locales al inicio.
@@ -165,10 +169,63 @@ Comprobaciones de esta revisión:
 
 La demo versionada no se reemplaza durante estas comprobaciones.
 
+## Revisión de documentación, interfaz y consignas
+
+Se revisó el proyecto contra `ENUNCIADO.md` y se mejoró la interfaz sin tocar
+el dominio ni la API.
+
+- Cumplimiento: los ocho procesos obligatorios, las siete validaciones, los
+  dos patrones y los cuatro reportes están implementados. La tabla que lo
+  relaciona con el código y las pruebas está en `README.md`, sección
+  "Cumplimiento del enunciado".
+- Dos validaciones del enunciado no tenían una prueba propia: el ejemplar que
+  no pertenece a la sede de origen y la sede dada de baja. Se agregaron cuatro
+  pruebas en `tests/test_api.py` (`PruebaValidacionesDelEnunciado`); pasaron
+  sin modificar el dominio.
+- Interfaz:
+  - textos con tildes y fechas en formato `dd/mm/aaaa`;
+  - menú agrupado con contadores de pendientes;
+  - inicio con tarjetas que llevan a cada sección y una lista "Para atender
+    ahora" (vencidos, solicitudes, remitos, retornos y reparaciones);
+  - remitos como tarjetas con el trayecto de estados y el momento de cada
+    paso, incluido el remito cancelado;
+  - préstamos vencidos resaltados con los días de atraso;
+  - el estado del remito visible en cada solicitud interbibliotecaria;
+  - buscador de texto en los listados;
+  - el formulario de solicitud lista los ejemplares del libro elegido,
+    completa la sede de origen y sugiere el tipo;
+  - etiquetas asociadas a sus campos y botón de envío bloqueado mientras dura
+    el pedido.
+- Documentación: se completaron las listas de archivos de `AGENTS.md`,
+  `FASES.md` y `GUIA_DEFENSA.md`, y se registró la cantidad actual de rutas.
+
+Comprobaciones de esta revisión:
+
+| Comprobación | Resultado |
+|---|---|
+| `python -B -m unittest discover -s tests` | 60 pruebas correctas, incluidas las 4 nuevas |
+| `node --check frontend/app.js` | sin errores de sintaxis |
+| `node tests/test_frontend.js` | trayecto del remito, fechas y recepción correctos |
+| Rutas registradas | 48 reglas de URL, 46 bajo `/api` |
+| Navegador (Playwright) sobre una copia de la demo | las nueve secciones cargan; ayuda de solicitud, buscador, empaque y recepción de remitos funcionan; el único error de consola es el HTTP 409 esperado al repetir una sede |
+
+Observaciones que quedan abiertas (no son requisitos obligatorios):
+
+- Un remito de retorno no puede cancelarse; solo se cancela el remito de una
+  solicitud, al cancelar esa solicitud antes del despacho.
+- Los ejemplares se dan de alta y se reparan, pero no se modifican ni se dan
+  de baja. El extravío y la destrucción son parte de un proceso opcional.
+- El plazo y la multa se guardan en `configuracion`, pero no hay una pantalla
+  ni una ruta para cambiarlos.
+- Los mensajes de error del backend y los datos de la demo no llevan tildes.
+
 ## Decisiones de alcance
 
-- No se implementaron usuarios, autenticación, notificaciones ni historial de
-  lecturas; son procesos opcionales del enunciado.
+- No se implementaron usuarios, autenticación, notificaciones, historial de
+  lecturas ni recomendaciones; no son procesos obligatorios del enunciado.
+- De los procesos opcionales se cubre en parte la revisión del estado de
+  recepción: se registra el estado físico observado (daño), no el extravío ni
+  la destrucción.
 - La interfaz es web y no de consola. La API puede probarse por separado.
 - Los reportes se calculan al momento de la consulta, no se guardan en tablas.
 - La multa se calcula al registrar la devolución y queda guardada en el
