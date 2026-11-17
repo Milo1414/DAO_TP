@@ -3,6 +3,9 @@
 const API = "/api";
 
 const estado = {
+    usuario: null,
+    requiereConfiguracion: false,
+    usuarios: [],
     listados: null,
     salud: null,
     seccion: "inicio",
@@ -13,6 +16,7 @@ const estado = {
     reporte: "movimiento",
     filtrosReporte: {},
     filasReporte: null,
+    graficosReporte: [],
     nombreReporte: "",
     rutaReporteGenerado: "",
     cargandoReporte: false,
@@ -90,11 +94,68 @@ const RUTAS_REPORTES = {
 
 document.addEventListener("DOMContentLoaded", function () {
     conectarEventos();
-    refrescar().catch(function (error) {
+    consultarSesion().catch(function (error) {
         actualizarServidor(false);
         avisar(error.message, "error");
     });
 });
+
+async function consultarSesion() {
+    const respuesta = await pedir("GET", "/sesion");
+    estado.usuario = respuesta.datos.usuario;
+    estado.requiereConfiguracion = respuesta.datos.requiere_configuracion;
+    actualizarServidor(true);
+    mostrarAcceso();
+    if (estado.usuario) {
+        await refrescar();
+    }
+}
+
+function limpiarSesion() {
+    estado.usuario = null;
+    estado.listados = null;
+    estado.salud = null;
+    estado.usuarios = [];
+    estado.seccion = "inicio";
+    estado.sedeEditada = null;
+    estado.socioEditado = null;
+    estado.libroEditado = null;
+    estado.filasReporte = null;
+    estado.graficosReporte = [];
+    estado.nombreReporte = "";
+    estado.rutaReporteGenerado = "";
+    document.getElementById("contenido").innerHTML = "";
+}
+
+function mostrarAcceso() {
+    const acceso = document.getElementById("acceso");
+    const conectado = estado.usuario !== null;
+    acceso.hidden = conectado;
+    document.getElementById("sistema").hidden = !conectado;
+    document.getElementById("sesion-personal").hidden = !conectado;
+    document.getElementById("nombre-personal").textContent = conectado ? estado.usuario.nombre : "";
+    if (conectado) {
+        acceso.innerHTML = "";
+        return;
+    }
+    const primeraCuenta = estado.requiereConfiguracion;
+    const titulo = primeraCuenta ? "Crear la primera cuenta" : "Ingreso del personal";
+    let html = '<div class="panel acceso-panel"><h2>' + titulo + '</h2>';
+    html += '<p class="nota">Acceso para el personal de la biblioteca.</p>';
+    html += '<form class="formulario" data-form="' + (primeraCuenta ? "primer-usuario" : "login") + '">';
+    if (primeraCuenta) {
+        html += '<div class="campo"><label for="acceso-nombre">Nombre</label><input id="acceso-nombre" name="nombre" maxlength="120" autocomplete="name" required></div>';
+    }
+    html += '<div class="campo"><label for="acceso-usuario">Usuario</label><input id="acceso-usuario" name="usuario" maxlength="40" autocomplete="username" required></div>';
+    html += '<div class="campo"><label for="acceso-contrasena">Contraseña</label><input id="acceso-contrasena" type="password" name="contrasena" ' +
+        (primeraCuenta ? 'minlength="8" ' : '') + 'maxlength="256" autocomplete="' +
+        (primeraCuenta ? "new-password" : "current-password") + '" required></div>';
+    if (primeraCuenta) {
+        html += '<p class="nota">La contraseña debe tener al menos 8 caracteres. Esta pantalla solo está disponible antes de crear la primera cuenta.</p>';
+    }
+    html += '<button type="submit" class="boton">' + (primeraCuenta ? "Crear cuenta e ingresar" : "Ingresar") + '</button></form></div>';
+    acceso.innerHTML = html;
+}
 
 function esc(valor) {
     if (valor === null || valor === undefined) {
@@ -346,6 +407,10 @@ async function pedir(metodo, ruta, cuerpo) {
         cuerpoRespuesta = null;
     }
     if (!respuesta.ok) {
+        if (respuesta.status === 401 && ruta !== "/login") {
+            limpiarSesion();
+            mostrarAcceso();
+        }
         let mensaje = "La operación no se pudo completar.";
         if (cuerpoRespuesta && cuerpoRespuesta.error) {
             mensaje = cuerpoRespuesta.error;
@@ -395,6 +460,10 @@ async function refrescar(mensaje) {
     const salud = await pedir("GET", "/salud");
     estado.listados = listados.datos;
     estado.salud = salud.datos;
+    if (estado.seccion === "usuarios") {
+        const cuentas = await pedir("GET", "/usuarios");
+        estado.usuarios = cuentas.datos;
+    }
     actualizarServidor(true);
     render();
     if (mensaje) {
@@ -442,6 +511,8 @@ function render() {
     } else if (estado.seccion === "reportes") {
         contenido.innerHTML = renderReportes();
         pintarReporte();
+    } else if (estado.seccion === "usuarios") {
+        contenido.innerHTML = renderUsuarios();
     }
     asociarEtiquetas(contenido);
     actualizarContadores();
@@ -449,10 +520,38 @@ function render() {
 
 async function abrirSeccion(seccion) {
     estado.seccion = seccion;
+    if (seccion === "usuarios") {
+        const respuesta = await pedir("GET", "/usuarios");
+        estado.usuarios = respuesta.datos;
+    }
     render();
     if (seccion === "reportes" && estado.filasReporte === null) {
         await cargarReporte(estado.reporte);
     }
+}
+
+function renderUsuarios() {
+    let html = '<section class="panel"><div class="panel-encabezado"><h2>Usuarios del personal</h2>';
+    html += '<p>Todas las cuentas tienen los mismos permisos. Las bajas conservan la cuenta y bloquean su acceso.</p></div>';
+    html += '<form class="formulario" data-form="usuario"><h3>Nueva cuenta</h3><div class="campos">';
+    html += '<div class="campo"><label>Nombre</label><input name="nombre" maxlength="120" autocomplete="off" required></div>';
+    html += '<div class="campo"><label>Usuario</label><input name="usuario" maxlength="40" autocomplete="off" required></div>';
+    html += '<div class="campo"><label>Contraseña</label><input name="contrasena" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></div>';
+    html += '</div><p class="nota">Mínimo 8 caracteres.</p><button type="submit" class="boton">Crear cuenta</button></form>';
+    html += '<div class="tabla-contenedor"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Estado</th><th>Acción</th></tr></thead><tbody>';
+    for (let indice = 0; indice < estado.usuarios.length; indice += 1) {
+        const cuenta = estado.usuarios[indice];
+        html += '<tr><td>' + esc(cuenta.usuario) + '</td><td>' + esc(cuenta.nombre) + '</td><td>' +
+            insigniaBooleana(cuenta.activa, "Activa", "Inactiva") + '</td><td>';
+        if (cuenta.id === estado.usuario.id) {
+            html += '<span class="nota">Tu cuenta</span>';
+        } else {
+            html += '<button type="button" class="boton secundario pequeno" data-accion="estado-usuario" data-identificador="' +
+                cuenta.id + '" data-activa="' + !cuenta.activa + '">' + (cuenta.activa ? "Desactivar" : "Activar") + '</button>';
+        }
+        html += '</td></tr>';
+    }
+    return html + '</tbody></table></div></section>';
 }
 
 function renderInicio() {
@@ -1051,6 +1150,7 @@ function pintarReporte() {
         return;
     }
     const columnas = Object.keys(estado.filasReporte[0]);
+    html += renderGraficos(estado.graficosReporte);
     html += '<div class="tabla-contenedor"><table><thead><tr>';
     for (let indice = 0; indice < columnas.length; indice += 1) {
         const clave = columnas[indice];
@@ -1067,6 +1167,37 @@ function pintarReporte() {
     }
     html += "</tbody></table></div>";
     contenedor.innerHTML = html;
+}
+
+function renderGraficos(graficos) {
+    let html = '<div class="graficos-reportes">';
+    for (let indice = 0; indice < graficos.length; indice += 1) {
+        const grafico = graficos[indice];
+        const escala = Math.max(grafico.maximo, 1);
+        html += '<figure class="grafico"><figcaption>' + esc(grafico.titulo) + '</figcaption>';
+        html += '<p class="nota">Unidad: ' + esc(grafico.unidad) + '. Escala común: 0 a ' + numeroTexto(escala) + '.</p>';
+        if (grafico.maximo === 0) {
+            html += '<p class="nota">Todos los valores son cero.</p>';
+        }
+        if (grafico.unidad === "horas") {
+            html += '<p class="nota">Cero también puede indicar que no hay duraciones disponibles.</p>';
+        }
+        for (let grupo = 0; grupo < grafico.grupos.length; grupo += 1) {
+            const datos = grafico.grupos[grupo];
+            html += '<div class="grafico-grupo"><p class="grafico-etiqueta">' + esc(datos.etiqueta) + '</p>';
+            for (let serie = 0; serie < grafico.series.length; serie += 1) {
+                const valor = datos.valores[serie];
+                const ancho = valor / escala * 100;
+                html += '<div class="grafico-fila"><span>' + esc(grafico.series[serie].nombre) + '</span>';
+                html += '<div class="grafico-pista"><span class="grafico-barra" style="width:' + ancho +
+                    '%;background-color:' + esc(grafico.series[serie].color) + '"></span></div>';
+                html += '<strong>' + numeroTexto(valor) + '</strong></div>';
+            }
+            html += '</div>';
+        }
+        html += '</figure>';
+    }
+    return html + '</div>';
 }
 
 function formatearValorReporte(clave, valor) {
@@ -1128,10 +1259,12 @@ async function cargarReporte(nombre) {
     try {
         const respuesta = await pedir("GET", ruta);
         estado.filasReporte = respuesta.datos.filas;
+        estado.graficosReporte = respuesta.datos.graficos || [];
         estado.nombreReporte = respuesta.datos.reporte;
         estado.rutaReporteGenerado = ruta;
     } catch (error) {
         estado.filasReporte = null;
+        estado.graficosReporte = [];
         estado.nombreReporte = "";
         avisar(error.message, "error");
     } finally {
@@ -1398,7 +1531,11 @@ function conectarEventos() {
     document.addEventListener("click", async function (evento) {
         const botonSeccion = evento.target.closest("[data-seccion]");
         if (botonSeccion) {
-            await abrirSeccion(botonSeccion.dataset.seccion);
+            try {
+                await abrirSeccion(botonSeccion.dataset.seccion);
+            } catch (error) {
+                avisar(error.message, "error");
+            }
             return;
         }
         const botonReporte = evento.target.closest("[data-reporte]");
@@ -1449,6 +1586,22 @@ function conectarEventos() {
 async function manejarFormulario(formulario) {
     const tipo = formulario.dataset.form;
     const datos = Object.fromEntries(new FormData(formulario).entries());
+
+    if (tipo === "login" || tipo === "primer-usuario") {
+        const respuesta = await pedir("POST", "/" + tipo, datos);
+        formulario.reset();
+        estado.usuario = respuesta.datos;
+        estado.requiereConfiguracion = false;
+        mostrarAcceso();
+        await refrescar("Sesión iniciada.");
+        return;
+    }
+    if (tipo === "usuario") {
+        await pedir("POST", "/usuarios", datos);
+        formulario.reset();
+        await refrescar("Cuenta creada.");
+        return;
+    }
 
     if (tipo === "sede") {
         datos.horario = formatearHorario(datos.horario);
@@ -1568,6 +1721,19 @@ async function manejarFormulario(formulario) {
 }
 
 async function manejarAccion(accion, datos) {
+    if (accion === "cerrar-sesion") {
+        await pedir("POST", "/logout", {});
+        limpiarSesion();
+        await consultarSesion();
+        return;
+    }
+    if (accion === "estado-usuario") {
+        await pedir("POST", "/usuarios/" + Number(datos.identificador) + "/estado", {
+            activa: datos.activa === "true",
+        });
+        await refrescar("Estado de la cuenta actualizado.");
+        return;
+    }
     if (accion === "editar-sede") {
         estado.sedeEditada = datos.codigo;
         render();

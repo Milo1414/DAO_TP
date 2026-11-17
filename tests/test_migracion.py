@@ -3,6 +3,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 
 from backend.app import crear_aplicacion
 from backend.modelos import db
@@ -57,7 +58,7 @@ class PruebaMigracion(unittest.TestCase):
         respaldo = aplicacion.config["RESPALDO_BASE"]
         self.assertIsNotNone(respaldo)
         self.assertTrue(os.path.exists(respaldo))
-        self.assertEqual(len(aplicacion.config["CAMBIOS_BASE"]), 1)
+        self.assertEqual(len(aplicacion.config["CAMBIOS_BASE"]), 2)
         self.assertIn("estado_fisico_recepcion", aplicacion.config["CAMBIOS_BASE"][0])
 
         conexion = sqlite3.connect(self.ruta)
@@ -91,6 +92,10 @@ class PruebaMigracion(unittest.TestCase):
         self.assertIn("horario de sede", texto)
 
         cliente = aplicacion.test_client()
+        registro = cliente.post("/api/primer-usuario", json={
+            "usuario": "personal", "nombre": "Personal", "contrasena": "prueba123",
+        })
+        self.assertEqual(registro.status_code, 201)
         respuesta = cliente.get("/api/salud")
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(len(respuesta.get_json()["datos"]["problemas_datos"]), 2)
@@ -116,6 +121,19 @@ class PruebaMigracion(unittest.TestCase):
             nombres.append(fila[0])
         self.assertIn("plazo_dias", nombres)
         self.assertIn("multa_por_dia", nombres)
+
+    def test_agrega_usuarios_con_respaldo_y_conserva_los_datos(self):
+        self.crear_tabla_vieja_sedes()
+        self.aplicacion = crear_aplicacion(self.ruta)
+        respaldo = self.aplicacion.config["RESPALDO_BASE"]
+        self.assertIsNotNone(respaldo)
+        with closing(sqlite3.connect(respaldo)) as conexion:
+            tablas = conexion.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+            self.assertNotIn(("usuarios",), tablas)
+            self.assertEqual(conexion.execute("SELECT COUNT(*) FROM sedes").fetchone()[0], 1)
+        with closing(sqlite3.connect(self.ruta)) as conexion:
+            self.assertEqual(conexion.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0], 0)
+            self.assertEqual(conexion.execute("SELECT COUNT(*) FROM sedes").fetchone()[0], 1)
 
 
 if __name__ == "__main__":

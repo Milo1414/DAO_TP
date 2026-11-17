@@ -17,12 +17,16 @@ class PruebaBase(unittest.TestCase):
     def setUp(self):
         self.carpeta = tempfile.TemporaryDirectory()
         self.ruta_base = os.path.join(self.carpeta.name, "prueba.db")
-        self.aplicacion = crear_aplicacion(self.ruta_base)
+        self.aplicacion = crear_aplicacion(self.ruta_base, {"SECRET_KEY": "test-only-key"})
         self.aplicacion.config["TESTING"] = True
         self.cliente = self.aplicacion.test_client()
         self.contexto = self.aplicacion.app_context()
         self.contexto.push()
         self.red = RedBibliotecas()
+        registro = self.cliente.post("/api/primer-usuario", json={
+            "usuario": "personal", "nombre": "Personal de prueba", "contrasena": "prueba123",
+        })
+        self.assertEqual(registro.status_code, 201)
 
     def tearDown(self):
         db.session.remove()

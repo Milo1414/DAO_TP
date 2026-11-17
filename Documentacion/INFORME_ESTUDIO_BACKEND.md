@@ -61,7 +61,7 @@ La consigna no establece 14 días de préstamo, 100 pesos de multa diaria ni una
 - Se permite recibir un envío ya despachado aunque su sede se haya dado de baja. Es una excepción para cerrar una operación en curso.
 - Se usan fechas y horas locales sin zona horaria para la logística.
 
-No se implementaron autenticación, recomendaciones, notificaciones a personas ni un módulo de historial de lecturas. Hay registros de préstamos que conservan historia, pero eso no equivale a un módulo específico de lecturas. La revisión física al recibir y la identificación de copias por código cubren parte de los procesos opcionales. Extravío y destrucción no tienen un flujo propio.
+Se agregó autenticación del personal a pedido de la cátedra; se explica en 12.6. Los socios no ingresan al sistema. No se implementaron recomendaciones, notificaciones a personas ni un módulo de historial de lecturas. Hay registros de préstamos que conservan historia, pero eso no equivale a un módulo específico de lecturas. La revisión física al recibir y la identificación de copias por código cubren parte de los procesos opcionales. Extravío y destrucción no tienen un flujo propio.
 
 <a id="capitulo-2"></a>
 
@@ -98,7 +98,10 @@ El proyecto es una aplicación web que corre en un proceso Python. Flask recibe 
 
 ```mermaid
 flowchart TD
-    N[Navegador] -->|HTTP y JSON| R[rutas.py: API]
+    N[Navegador] -->|HTTP y cookie firmada| ACC[app.py: verifica sesión y cuenta activa]
+    ACC --> R[rutas.py: API]
+    ACC --> U[usuarios.py: seguridad del personal]
+    U --> DB[(SQLite)]
     A[app.py: configura Flask] --> R
     A -->|sirve archivos| N
     R --> C[red.py: casos de uso]
@@ -113,6 +116,8 @@ flowchart TD
     R --> S[serializadores.py]
     S -->|diccionarios convertidos a JSON| N
     R --> P[reportes_pdf.py: presentación con ReportLab]
+    R --> G[reportes_graficos.py: series compartidas]
+    G -->|JSON de gráficos| N
     P -->|archivo PDF descargable| N
 ```
 
@@ -149,6 +154,7 @@ Las carpetas `.git` y los archivos generados no son módulos de negocio. El sigu
 | [backend/__init__.py](../backend/__init__.py) | Marca el paquete backend; solo contiene un comentario. |
 | [backend/app.py](../backend/app.py) | Crea Flask, conecta ORM, prepara base, registra rutas, sirve archivos y maneja errores. |
 | [backend/modelos.py](../backend/modelos.py) | Extensión `db`, activación de FK y tabla `Configuracion`. |
+| [backend/usuarios.py](../backend/usuarios.py) | Cuentas persistentes del personal, hashes y validaciones de acceso, separadas del dominio. |
 | [backend/sede.py](../backend/sede.py) | Modelo `Sede`, validación, modificación y baja lógica. |
 | [backend/socio.py](../backend/socio.py) | Modelo `Socio`, datos de contacto y habilitación. |
 | [backend/catalogo.py](../backend/catalogo.py) | Modelos `Libro` y `Ejemplar`, estados de copia y movimiento. |
@@ -156,7 +162,8 @@ Las carpetas `.git` y los archivos generados no son módulos de negocio. El sigu
 | [backend/remito.py](../backend/remito.py) | Remito, detalle, historial, transiciones y Observer. |
 | [backend/red.py](../backend/red.py) | Coordina validaciones entre entidades y transacciones de cada caso de uso. |
 | [backend/reportes.py](../backend/reportes.py) | Cuatro algoritmos de reporte y sus fábricas. |
-| [backend/reportes_pdf.py](../backend/reportes_pdf.py) | Presenta los resultados ya calculados como documentos PDF, con filtros, alcance y tablas legibles. |
+| [backend/reportes_pdf.py](../backend/reportes_pdf.py) | Presenta los resultados ya calculados como documentos PDF, con filtros, alcance, gráficos vectoriales y tablas legibles. |
+| [backend/reportes_graficos.py](../backend/reportes_graficos.py) | Prepara etiquetas, series y valores compartidos por la app y el PDF. |
 | [backend/validaciones.py](../backend/validaciones.py) | Funciones de validación reutilizables, independientes de HTTP y del ORM. |
 | [backend/errores.py](../backend/errores.py) | Tipos de error que separan entrada inválida, inexistencia y conflicto. |
 | [backend/serializadores.py](../backend/serializadores.py) | Convierte objetos y datos derivados en diccionarios transportables. |
@@ -172,14 +179,17 @@ Las carpetas `.git` y los archivos generados no son módulos de negocio. El sigu
 | [tests/test_patrones.py](../tests/test_patrones.py) | 9 casos de Factory Method y Observer. |
 | [tests/test_reportes.py](../tests/test_reportes.py) | 5 casos de cálculos y filtros de reportes. |
 | [tests/test_reportes_pdf.py](../tests/test_reportes_pdf.py) | 8 casos de descarga PDF, igualdad con los resultados JSON, filtros, errores, ausencia de datos y varias páginas. |
-| [tests/test_migracion.py](../tests/test_migracion.py) | 4 casos de creación, respaldo, columna nueva y conservación de datos inválidos. |
+| [tests/test_migracion.py](../tests/test_migracion.py) | Creación, respaldo, columna nueva, tabla de usuarios y conservación de datos inválidos. |
+| [tests/test_usuarios.py](../tests/test_usuarios.py) | Acceso del personal, sesión, hashes, altas, bajas, persistencia y bloqueo del registro inicial. |
+| [tests/test_reportes_graficos.py](../tests/test_reportes_graficos.py) | Series de gráficos, agrupaciones, filtros y resultados vacíos. |
+| [tests/test_acceso_frontend.js](../tests/test_acceso_frontend.js) | Contrato de sesión, limpieza de datos ante 401 y presentación de barras. |
 | [tests/test_regresiones.py](../tests/test_regresiones.py) | 16 casos que protegen correcciones: cancelaciones, fechas, daño, rollback y recuperación inválida. |
 | [tests/test_frontend.js](../tests/test_frontend.js) | Comprueba, entre otras cosas, que la recepción envía el estado físico exigido por la API. |
 | [Documentacion/ENUNCIADO.md](ENUNCIADO.md) | Transcripción de la consigna, contrastada con el PDF. |
 | [Documentacion/FASES.md](FASES.md) | Decisiones, evolución y comprobaciones históricas. Fase actual: revisión final y entrega. |
 | [Documentacion/README.md](README.md) | Instrucciones de uso, API y resumen de cumplimiento. |
 | [Documentacion/GUIA_DEFENSA.md](GUIA_DEFENSA.md) | Guía previa más breve; útil como mapa, con algunas simplificaciones. |
-| [Documentacion/EXPLICACION_ARQUITECTURA.md](EXPLICACION_ARQUITECTURA.md) | Exploración previa con pasajes desactualizados; no se modificó. |
+| [Documentacion/EXPLICACION_ARQUITECTURA.md](EXPLICACION_ARQUITECTURA.md) | Exploración previa; incluye una actualización de alcance sobre acceso y gráficos. |
 | `Documentacion/INFORME_ESTUDIO_BACKEND.md` | Este informe nuevo, basado en el código inspeccionado. |
 
 <a id="capitulo-5"></a>
@@ -768,11 +778,12 @@ class Ejemplar(db.Model):
 
 `db.Model` incorpora el mapeo. `__tablename__` elige la tabla. `Column` define un atributo persistente y su tipo. `primary_key=True` establece identidad. La FK exige que el libro referenciado exista cuando las restricciones están activas. `nullable=False` prohíbe `NULL`, pero no prohíbe por sí mismo un texto vacío: esa validación es del dominio.
 
-### 10.2 Las once tablas y sus relaciones
+### 10.2 Las doce tablas y sus relaciones
 
 | Tabla | Clave primaria | Referencias y contenido |
 |---|---|---|
 | `configuracion` | `clave` | Parámetros textuales de plazo y tarifa. |
+| `usuarios` | `id` | Cuenta del personal: usuario único, nombre, hash y activa; independiente de los socios. |
 | `sedes` | `codigo` | Datos de la biblioteca y su actividad. |
 | `socios` | `numero` | Datos del lector y habilitación. |
 | `libros` | `isbn` | Ficha bibliográfica. |
@@ -945,7 +956,7 @@ Los problemas iniciales quedan en `PROBLEMAS_BASE` y se exponen en `/api/salud`.
 
 ### 12.1 `rutas.py` y su contrato
 
-`Blueprint("api", __name__, url_prefix="/api")` agrupa las rutas para registrarlas en Flask. En el código actual hay **46 declaraciones de rutas de API**, contando por separado GET y POST aunque compartan dirección. `app.py` añade las dos reglas para servir la página y archivos. Este conteo se realizó leyendo el código; no se cargó Flask en esta sesión.
+`Blueprint("api", __name__, url_prefix="/api")` agrupa las rutas de negocio para registrarlas en Flask. Conserva 46 declaraciones en `rutas.py`. `app.py` agrega siete rutas de acceso y usuarios, además de las dos que sirven la página y los archivos. Toda la API de negocio y las descargas pasan por el control de sesión.
 
 Las rutas no deciden la prioridad de una reserva ni si un ejemplar pertenece al origen. Preparan datos de entrada y llaman a la red. Sí hacen validación de transporte: estructura JSON, campos, tipos y formatos.
 
@@ -970,6 +981,8 @@ Todos los caminos siguientes llevan el prefijo `/api`:
 | Intención | Rutas y métodos |
 |---|---|
 | Diagnóstico y datos generales | GET `/salud`, `/resumen`, `/listados`. |
+| Acceso | GET `/sesion`; POST `/login`, `/primer-usuario` y `/logout`. |
+| Cuentas del personal | GET/POST `/usuarios`; POST `/usuarios/<id>/estado`. |
 | Sedes | GET/POST `/sedes`; GET/PUT `/sedes/<codigo>`; POST `.../baja` y `.../reactivacion`. |
 | Socios | GET/POST `/socios`; GET/PUT `/socios/<numero>`; POST `.../habilitar` y `.../inhabilitar`. |
 | Libros | GET/POST `/libros`; GET/PUT `/libros/<isbn>`. |
@@ -1036,6 +1049,51 @@ Los manejadores de `app.py` revierten la sesión para los errores de negocio e i
 | `validar_historial_remito` | Orden, secuencia, cronología, creación y concordancia con estado actual. |
 
 Estas funciones no importan Flask ni ORM. Se reutilizan en entidades, coordinador y revisión heredada. No todas las reglas son de formato: la secuencia logística es una regla de dominio.
+
+### 12.6 Login: qué ocurre antes de llegar al dominio
+
+El personal se autentica; los socios son lectores administrados por el sistema.
+`Usuario` está en `backend/usuarios.py`, separado de las entidades de circulación
+y de `modelos.py`. Su tabla guarda `id`, `usuario`, `nombre`, `password_hash` y
+`activa`. No tiene relación con la habilitación de un socio.
+
+1. La app consulta `GET /api/sesion` antes de pedir listados. Si hay cuentas,
+   muestra el login. Si no hay ninguna, muestra el primer registro.
+2. `POST /api/login` recibe usuario y contraseña. `autenticar()` busca la cuenta
+   y usa `check_password_hash`. Al crearla, `Usuario.__init__()` valida todos los
+   datos y usa `generate_password_hash`, que agrega salt. Se guardan hashes,
+   nunca la contraseña original. Se exigen entre 8 y 256 caracteres.
+3. Si el ingreso es válido, `app.py` limpia la sesión anterior y guarda solo
+   `usuario_id`. Flask lo envía en una cookie firmada con una clave creada con
+   `secrets.token_hex(32)`. La clave se conserva en `instance/clave_secreta`,
+   fuera de Git, y se reutiliza al reiniciar. La cookie es firmada, no cifrada.
+4. Antes de cada petición a la API, `comprobar_acceso()` obtiene el id de la
+   sesión y consulta en SQLite si la cuenta existe y está activa. Si no,
+   limpia la sesión y devuelve 401. También protege las descargas PDF.
+5. La API devuelve solo id, usuario, nombre y activa. El hash nunca sale del
+   servidor. Usuario inexistente, contraseña errónea y cuenta inactiva muestran
+   el mismo mensaje: «Usuario o contraseña incorrectos».
+6. Administración → Usuarios permite crear, activar y desactivar cuentas.
+   `cambiar_estado_usuario()` valida el estado antes de asignar y rechaza la
+   baja propia. No hay borrado ni roles: todos tienen los mismos permisos.
+   Una cuenta inactiva pierde acceso en su siguiente petición, aunque conserve
+   la cookie, porque la autorización se vuelve a comprobar en el servidor.
+7. El primer registro solo funciona con la tabla vacía; después devuelve 403.
+   El id 1 fijo y su clave primaria impiden dos registros iniciales simultáneos.
+   Las tres cuentas solicitadas ya están cargadas en la demo mediante una
+   operación puntual. El código no contiene credenciales precargadas.
+8. `POST /api/logout` limpia la sesión. Ante un 401, el cliente elimina sus
+   listados, usuarios y resultados guardados y vuelve al formulario de ingreso.
+
+La cookie usa `HttpOnly` y `SameSite=Lax`, y el servidor escucha en
+`127.0.0.1`. Para el alcance local no se agregaron bloqueo por intentos,
+recuperación o cambio de contraseña, token CSRF ni HTTPS. `SameSite=Lax`
+aporta una mitigación parcial; no reemplaza una protección CSRF completa.
+
+**Para decir en la defensa:** “El login es del personal, independiente de los
+socios. Las cuentas se guardan en SQLite con un hash de contraseña. Flask firma
+una cookie con el id y el servidor verifica la cuenta en cada petición. Ocultar
+el menú es presentación; la autorización efectiva ocurre en `before_request`”.
 
 <a id="capitulo-13"></a>
 
@@ -1122,17 +1180,19 @@ La tasa denominada de éxito mide recepción, no “recibido sin daños”. Las 
 
 **Estado real del proyecto.** Cada reporte conserva su salida JSON y admite `formato=pdf` en la misma ruta. El botón **Descargar PDF**, visible después de generar un reporte, solicita el archivo con los filtros del último resultado generado. También permite descargar un documento que informa que no hay datos. El backend vuelve a consultar la base al descargar: si entre la consulta y la descarga cambian los registros, el PDF puede reflejar ese cambio. No es una captura congelada de la pantalla.
 
-**Qué incluye el documento exportado.** Cada PDF identifica el reporte y su fecha de generación, muestra los filtros efectivos, explica su utilidad para la gestión y el alcance de los cálculos, y presenta los resultados en tablas con encabezados repetidos y páginas numeradas. Disponibilidad y movimiento distribuyen sus columnas en varias tablas para conservar la legibilidad. El documento explica qué decisiones puede apoyar; la conclusión concreta sobre los datos la desarrollás vos al exponer. Cambiar el formato a PDF no convierte por sí solo un listado operativo en un análisis útil.
+**Qué incluye el documento exportado.** Cada PDF identifica el reporte y su fecha de generación, muestra los filtros efectivos, explica su utilidad para la gestión y el alcance de los cálculos, y presenta gráficos de barras y tablas con encabezados repetidos y páginas numeradas. Disponibilidad y movimiento distribuyen sus columnas en varias tablas para conservar la legibilidad. El documento explica qué decisiones puede apoyar; la conclusión concreta sobre los datos la desarrollás vos al exponer. Cambiar el formato a PDF no convierte por sí solo un listado operativo en un análisis útil.
 
 **Recorrido del código, paso a paso:**
 
 1. En `frontend/app.js`, `crearRutaReporte()` construye la dirección con los filtros. `cargarReporte()` obtiene el JSON y conserva la dirección de esa consulta exitosa. `pintarReporte()` agrega un enlace a la misma dirección con `formato=pdf`. La fecha de referencia predeterminada se fija al generar para conservarla al descargar.
 2. La ruta de `backend/rutas.py` valida los parámetros, crea el reporte mediante su fábrica y ejecuta `reporte.generar(red, parametros)`. Este cálculo es el mismo para JSON y PDF.
-3. `responder_reporte()` elige la presentación. Sin formato o con `formato=json`, devuelve JSON. Con `formato=pdf`, llama a `generar_pdf()`; cualquier otro formato produce HTTP 400. `send_file()` devuelve el archivo como adjunto, con tipo `application/pdf` y nombre descriptivo.
-4. En `backend/reportes_pdf.py`, `contenido_reporte()` define textos y columnas de cada reporte; `formatear_valor()` presenta fechas, moneda y porcentajes; `crear_tabla()` recorre las filas y arma una tabla; `agregar_pie()` numera las páginas. `generar_pdf()` organiza título, filtros, explicaciones y tablas mediante ReportLab.
+3. `responder_reporte()` elige la presentación. Sin formato o con `formato=json`, devuelve las filas y `graficos`. Con `formato=pdf`, llama a `generar_pdf()`; cualquier otro formato produce HTTP 400. `send_file()` devuelve el archivo como adjunto, con tipo `application/pdf` y nombre descriptivo. El control de sesión protege ambas salidas.
+4. En `backend/reportes_pdf.py`, `contenido_reporte()` define textos y columnas de cada reporte; `formatear_valor()` presenta fechas, moneda y porcentajes; `crear_tabla()` recorre las filas y arma una tabla; `agregar_pie()` numera las páginas. `generar_pdf()` organiza título, filtros, explicaciones, gráficos y tablas mediante ReportLab. `agregar_graficos()` obtiene las series de `reportes_graficos.preparar_graficos()` y `dibujar_barras()` construye rectángulos y textos vectoriales. La app recibe esas mismas series y solo las presenta con HTML/CSS.
 5. El documento se construye en un `BytesIO`, un archivo en memoria. Se vuelve al principio con `seek(0)` para que Flask pueda enviarlo desde el comienzo. Las descargas no escriben PDF en el disco del servidor ni agregan tablas a SQLite.
 
 Ejemplo: `/api/reportes/disponibilidad?sede=S1&isbn=L1&formato=pdf`. **Factory Method sigue siendo responsable de crear el reporte; el generador PDF presenta sus resultados.** No se agregaron patrones ni se duplicaron las reglas de negocio.
+
+Los gráficos separan préstamos al día (`activos - vencidos`) de vencidos; suman los estados del inventario por sede respetando el filtro de libro; conservan el ranking completo; y muestran envíos y horas en gráficos distintos. No suman reservas como copias ni mezclan unidades. Los valores cero se muestran sin divisiones por cero y los grupos de un gráfico comparten escala. Un tiempo cero también puede significar que no hay duraciones disponibles.
 
 En una red pública de bibliotecas, el destinatario equivalente al “dueño del negocio” es quien dirige la red y decide presupuesto, recursos y políticas de servicio. Estos son usos posibles de los datos que **ya calcula** el sistema:
 
@@ -1174,7 +1234,7 @@ Al terminar, `tearDown()` retira la sesión, libera el motor, cierra contexto y 
 | `test_regresiones.py` | Cancelaciones según etapa, retorno sin préstamo previo, recepción dañada, recuperación inválida, cronología y rollback incluso ante un fallo posterior a modificar objetos. |
 | `test_frontend.js` | El cliente envía `estado_fisico` al recibir; representa fechas y trayectoria según datos del backend. Usa funciones en un contexto Node, no un navegador completo. |
 
-El conteo actual es **68 pruebas Python**: las 60 existentes más 8 de PDF. Contar pruebas no demuestra que hayan pasado ni que cubran todos los casos posibles. La ejecución comprobada se registra a continuación.
+El conteo actual es **84 pruebas Python**, incluidas las de acceso del personal, gráficos y migración de usuarios. Contar pruebas no demuestra que hayan pasado ni que cubran todos los casos posibles. La ejecución comprobada se registra a continuación.
 
 ### 14.3 Qué se ejecutó realmente el 16 de noviembre de 2026
 
@@ -1197,6 +1257,15 @@ Los dos intérpretes encontrados, Python 3.14 y Python 3.11, no tenían Flask ni
 **Actualización posterior a la exploración inicial, el mismo 16/11/2026:** con autorización se instalaron las dependencias de `requirements.txt` en `.venv`. Se ejecutó `.\.venv\Scripts\python.exe -B -m unittest discover -s tests`: **60 pruebas correctas**. Se inició la aplicación con `biblioteca_practica.db`, una copia de la demo, y se verificaron respuestas HTTP 200 en `/`, `/api/salud`, `/api/resumen` y `/api/listados`; salud informó una lista vacía de problemas. La limitación de dependencias de la revisión inicial quedó resuelta.
 
 **Actualización de los PDF, el mismo 16/11/2026:** se instaló ReportLab 5.1.0 con autorización y se ejecutó la suite ampliada: **68 pruebas correctas**. También pasaron la comprobación de sintaxis y las pruebas Node, incluidas la descarga con filtros, la fecha predeterminada, los resultados vacíos y la ausencia del enlace tras un error. Se generaron los cuatro documentos con una copia de la demo, un caso vacío y un documento de once páginas con títulos largos. Se extrajo su texto y se revisó visualmente la presentación, ajustando los saltos para acompañar cada título de sección con su tabla.
+
+**Actualización del 17/11/2026:** tras agregar login y gráficos, la suite completa
+pasó **84 pruebas Python**. Pasaron también la sintaxis de JavaScript, las pruebas
+Node existentes y `test_acceso_frontend.js`. Se verificaron en navegador el
+ingreso, usuarios, los gráficos de los cuatro reportes, una descarga autenticada
+y el cierre de sesión. Se renderizaron y revisaron todas las páginas de los
+cuatro PDF generados con la demo. Las tres cuentas solicitadas se guardaron con
+hashes y se comprobó su ingreso. La clave de sesión quedó excluida de Git.
+El servidor temporal usó una copia de la demo y se detuvo al terminar.
 
 Con el servidor reiniciado sobre la misma base de práctica, las cuatro descargas respondieron HTTP 200 y `application/pdf`. Se probó además el botón en un navegador real: descargó movimiento y disponibilidad filtrada por S1/L1. La lectura del PDF descargado confirmó los filtros y que no incluía otros libros.
 
@@ -1370,7 +1439,7 @@ Se realiza la migración específica cuando corresponde y se revisan los datos c
 
 **¿Qué pruebas pasaron?**
 
-Las 68 pruebas Python pasaron con `.venv`, incluidas las 8 de PDF; también las pruebas Node de la interfaz. Se generaron y revisaron documentos con datos de la demo, sin datos y de varias páginas. La exploración inicial había quedado limitada por dependencias faltantes; esa limitación se resolvió posteriormente, como se registra en 14.3. Las pruebas no equivalen a demostrar que no exista ningún defecto posible.
+Las 84 pruebas Python pasaron con `.venv`, incluidas las de PDF, acceso del personal y gráficos; también las dos pruebas Node de la interfaz. Se generaron y revisaron los cuatro documentos con gráficos y datos de la demo; las pruebas cubren además documentos sin datos y de varias páginas. La exploración inicial había quedado limitada por dependencias faltantes; esa limitación se resolvió posteriormente, como se registra en 14.3. Las pruebas no equivalen a demostrar que no exista ningún defecto posible.
 
 **¿Qué mejorarían si el sistema creciera?**
 

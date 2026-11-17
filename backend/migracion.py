@@ -54,17 +54,23 @@ def _migrar_columnas(ruta_base, cambios):
     conexion.row_factory = sqlite3.Row
     try:
         tablas = _nombres_de_tablas(conexion)
-        if "remito_ejemplares" not in tablas:
-            return None
-        columnas = _nombres_de_columnas(conexion, "remito_ejemplares")
-        if "estado_fisico_recepcion" in columnas:
+        falta_columna = False
+        if "remito_ejemplares" in tablas:
+            columnas = _nombres_de_columnas(conexion, "remito_ejemplares")
+            falta_columna = "estado_fisico_recepcion" not in columnas
+        falta_usuarios = "usuarios" not in tablas and len(tablas) > 0
+        if falta_columna == False and falta_usuarios == False:
             return None
         respaldo = _crear_respaldo(ruta_base)
-        conexion.execute(
-            "ALTER TABLE remito_ejemplares ADD COLUMN estado_fisico_recepcion TEXT"
-        )
-        conexion.commit()
-        cambios.append("Se agregó estado_fisico_recepcion a remito_ejemplares.")
+        if falta_columna:
+            conexion.execute(
+                "ALTER TABLE remito_ejemplares ADD COLUMN estado_fisico_recepcion TEXT"
+            )
+            conexion.commit()
+            cambios.append("Se agregó estado_fisico_recepcion a remito_ejemplares.")
+        if falta_usuarios:
+            # The ORM creates the new table immediately after this backup.
+            cambios.append("Se agregó la tabla usuarios para el acceso del personal.")
         return respaldo
     finally:
         conexion.close()

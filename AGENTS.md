@@ -19,8 +19,11 @@ El proyecto se organiza en pocas carpetas claras:
 - `backend/`: entidades del dominio (`sede.py`, `socio.py`, `catalogo.py`, `prestamos.py`, `remito.py`), coordinador (`red.py`), reportes y fábricas (`reportes.py`), validaciones compartidas (`validaciones.py`), excepciones del dominio (`errores.py`), conversión JSON (`serializadores.py`), rutas HTTP (`rutas.py`) y aplicación Flask (`app.py`).
 - `backend/migracion.py`: preparación y migración de una base SQLite existente, respaldo y revisión de datos heredados. Es el único módulo que usa `sqlite3` directamente.
 - `backend/modelos.py`: configuración de Flask-SQLAlchemy, `Configuracion` y activación de claves foráneas.
+- `backend/usuarios.py`: cuentas del personal, hashes y validaciones de acceso; seguridad web separada del dominio de préstamos. `backend/app.py` protege la API con la sesión.
+- `backend/reportes_graficos.py`: prepara las series compartidas por los gráficos de la app y los PDF; `backend/reportes_pdf.py` presenta los documentos en memoria.
 - `frontend/`: interfaz web con HTML, CSS y JavaScript (`index.html`, `styles.css`, `app.js`), servida por Flask y separada del dominio.
 - `tests/`: pruebas con `unittest` (`apoyo.py`, `test_api.py`, `test_orm.py`, `test_patrones.py`, `test_reportes.py`, `test_migracion.py`, `test_regresiones.py`) y una prueba de la interfaz con Node (`test_frontend.js`).
+- Las ampliaciones se comprueban en `test_usuarios.py`, `test_reportes_pdf.py`, `test_reportes_graficos.py` y `test_acceso_frontend.js`.
 - `Documentacion/`: `ENUNCIADO.md`, `README.md`, `FASES.md`, `GUIA_DEFENSA.md`.
 
 Reglas de separación:

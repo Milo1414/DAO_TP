@@ -89,10 +89,42 @@ Es la fábrica de la aplicación Flask:
 - registra el blueprint de la API;
 - sirve `index.html`, `styles.css` y `app.js`;
 - ejecuta `preparar_base` al iniciar;
+- configura la cookie de sesión y verifica el usuario activo antes de cada
+  petición a la API, incluidas las descargas;
 - convierte excepciones del dominio en respuestas HTTP 400, 404, 409 o 500;
 - expone `/api/salud` con la ruta de la base y los problemas detectados.
 
 Qué explicar: “es el pegamento entre Flask, el ORM, la API y el frontend”.
+
+### `backend/usuarios.py`
+
+Es la seguridad de la aplicación web. Define la tabla `usuarios`, con id,
+usuario único, nombre, hash de contraseña y estado activo. Es independiente
+de `Socio`, que representa al lector y no tiene acceso al sistema.
+
+Qué explicar: “Las cuentas están en SQLite. Al ingresar, Werkzeug compara la
+contraseña con su hash; Flask firma una cookie que contiene solo el id.
+`before_request` consulta si esa cuenta sigue activa. Por eso desactivar
+una cuenta también bloquea una sesión que ya estaba abierta”.
+
+La clave se genera una vez con `secrets.token_hex(32)` y se guarda fuera de Git,
+en `instance/clave_secreta`. La cookie tiene `HttpOnly` y `SameSite=Lax`.
+Las cuentas se crean en Administración → Usuarios y no se borran. La cuenta
+propia no se puede desactivar. En una base vacía se puede crear la primera;
+después ese endpoint devuelve 403. La demo ya tiene las tres cuentas pedidas.
+Todos tienen los mismos permisos. Las limitaciones del alcance local están
+en el README; no hay recuperación de contraseña ni roles.
+
+### `backend/reportes_graficos.py` y `backend/reportes_pdf.py`
+
+Después de que la fábrica crea el reporte y `generar()` calcula sus filas,
+`preparar_graficos()` prepara las series. La app recibe esos datos por JSON
+y presenta barras con HTML/CSS. El PDF dibuja las mismas series con ReportLab,
+además de las tablas y la explicación de sus métricas. Cantidades y horas
+se muestran en gráficos separados; las reservas no se cuentan como copias.
+
+Qué explicar: “Factory Method crea el reporte; el cálculo genera las filas;
+la presentación usa esas filas para tablas y gráficos en los dos formatos”.
 
 ### `backend/modelos.py`
 
@@ -578,7 +610,9 @@ finalizar se cierran sesión y motor para poder borrar el archivo en Windows.
    concretas.”
 8. “La base demo se genera con `crear_base_demo.py` y el ORM.”
 9. “La suite cubre API, ORM, patrones, reportes, migración y las regresiones
-   de la revisión final; son 60 pruebas.”
+   de la revisión final, además del login y las series de los gráficos.”
+10. “El personal ingresa con una cuenta guardada en SQLite; cada petición se
+    autoriza en el servidor y los socios no ingresan.”
 
 ## 9. Preguntas probables del profesor
 

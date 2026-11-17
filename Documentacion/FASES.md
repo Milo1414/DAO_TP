@@ -192,8 +192,9 @@ ajustaron tres pruebas que comparaban los textos anteriores; la suite sigue en
 
 ## Decisiones de alcance
 
-- No se implementaron usuarios, autenticación, notificaciones, historial de
-  lecturas ni recomendaciones; no son procesos obligatorios del enunciado.
+- No se implementaron notificaciones, historial de lecturas ni recomendaciones;
+  no son procesos obligatorios del enunciado. El acceso del personal se agregó
+  posteriormente a pedido de la cátedra, como se registra más abajo.
 - De los procesos opcionales se cubre en parte la revisión del estado de
   recepción: se registra el estado físico observado (daño), no el extravío ni
   la destrucción.
@@ -273,6 +274,49 @@ Comprobaciones de esta ampliación:
   respondieron HTTP 200 con `application/pdf` y disposición de adjunto.
   En un navegador real se descargaron movimiento y disponibilidad filtrada
   por S1/L1; el archivo descargado conserva los filtros y excluye otros libros.
+
+## Ampliación del 17/11/2026: acceso del personal y gráficos
+
+- `backend/usuarios.py` contiene la entidad de seguridad `Usuario` y las
+  operaciones de cuentas con hashes de Werkzeug; no forma parte del dominio
+  de circulación ni se incorporó a `modelos.py`.
+- `app.py` configura una clave persistente en `instance/`, la cookie firmada,
+  el control de cada petición y las siete rutas de sesión y usuarios.
+  Solo sesión, login y primer registro son públicos. Las cuentas se desactivan;
+  el servidor impide la baja propia y rechaza sesiones de cuentas inactivas.
+- La preparación de una base anterior respalda antes de agregar `usuarios`.
+  Las tres cuentas solicitadas se cargaron directamente en `biblioteca_demo.db`
+  y se comprobó el ingreso de cada una. Sus contraseñas no están en el código.
+  La base conserva el dominio existente y su revisión no informó problemas.
+- La interfaz consulta sesión antes de cargar listados, tiene login y primer
+  registro, cierre de sesión y Administración → Usuarios. Un 401 limpia los
+  datos privados de la interfaz y vuelve al ingreso.
+- `reportes_graficos.py` prepara series desde las filas de los reportes.
+  JSON y PDF usan esa misma preparación. HTML/CSS muestra barras y ReportLab
+  dibuja gráficos vectoriales. Se conservan tablas, filtros y todos los grupos.
+  Los préstamos al día excluyen vencidos; reservas no se suman al inventario;
+  las horas de tránsito se muestran separadas de las cantidades de envíos.
+- No se agregaron dependencias ni patrones de diseño.
+
+Comprobaciones finales:
+
+- Suite Python completa: **84 pruebas correctas**. En Windows se ejecutó
+  fuera del entorno restringido porque este impedía abrir las bases temporales.
+- `node --check frontend/app.js`, `node tests/test_frontend.js` y
+  `node tests/test_acceso_frontend.js`: correctos.
+- Navegador sobre una copia de la demo: ingreso, sesión conservada al recargar,
+  pantalla de usuarios, gráficos de los cuatro reportes, descarga autenticada
+  de movimiento y vuelta al login al cerrar sesión. Se ajustó el ancho móvil
+  para que la tabla tenga desplazamiento propio y no ensanche los gráficos.
+- Cuatro PDF generados con la demo y todas sus páginas renderizadas con
+  PyMuPDF para revisión visual. Se corrigió un título de gráfico que quedaba
+  separado de sus barras al cambiar de página. Los casos vacíos y extensos
+  también están cubiertos por las pruebas de PDF.
+- Las tres cuentas solicitadas ingresaron correctamente; la revisión de la
+  demo no informó problemas. La clave de sesión y los artefactos de revisión
+  están excluidos de Git. El servidor temporal se detuvo al terminar.
+- `git -c core.whitespace=cr-at-eol diff --check`: correcto; se respeta el
+  formato CRLF del informe existente.
 
 ## Cómo continuar
 

@@ -15,13 +15,21 @@
                 <p>Red de préstamos interbibliotecarios</p>
             </div>
         </div>
+        <div class="sesion-personal" id="sesion-personal" hidden>
+            <span id="nombre-personal"></span>
+            <button type="button" class="boton secundario pequeno" data-accion="cerrar-sesion">Cerrar sesión</button>
+        </div>
         <div class="estado-servidor" id="estado-servidor" title="Estado de la API">
             <span class="punto"></span>
             <span id="estado-servidor-texto">Conectando...</span>
         </div>
     </header>
 
-    <div class="diseno">
+    <section id="acceso" class="acceso" aria-label="Acceso del personal">
+        <p class="cargando">Comprobando sesión...</p>
+    </section>
+
+    <div class="diseno" id="sistema" hidden>
         <nav class="menu" aria-label="Secciones">
             <button type="button" data-seccion="inicio" class="activo">Inicio</button>
 
@@ -29,6 +37,7 @@
             <button type="button" data-seccion="sedes">Sedes</button>
             <button type="button" data-seccion="socios">Socios</button>
             <button type="button" data-seccion="catalogo">Catálogo y ejemplares</button>
+            <button type="button" data-seccion="usuarios">Usuarios</button>
 
             <span class="menu-grupo">Circulación</span>
             <button type="button" data-seccion="solicitudes">Solicitudes <span class="contador" data-contador="solicitudes" hidden></span></button>

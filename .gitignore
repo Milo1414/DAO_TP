@@ -17,4 +17,8 @@ htmlcov/
 venv/
 *.log
 .env
+instance/
+tmp/
+output/
+.playwright-mcp/
 desktop.ini

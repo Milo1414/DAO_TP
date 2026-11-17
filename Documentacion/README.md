@@ -26,6 +26,8 @@ en el dominio.
 - Remitos de préstamo y de retorno con empaquetado, despacho y recepción.
 - Historial de estados del remito.
 - Cuatro reportes no triviales.
+- Gráficos de barras en la app y en los cuatro PDF, junto con las tablas.
+- Login del personal y administración de cuentas persistentes.
 - Revisión de datos heredados al abrir una base existente.
 
 ## Requisitos
@@ -47,6 +49,11 @@ python main.py
 
 Luego abrir `http://127.0.0.1:5000` en el navegador.
 
+La demo incluye las cuentas `CamiloMartin`, `CatalinaZapata` y `MelinaGigena`,
+cargadas con las contraseñas indicadas por sus titulares. En una base sin
+usuarios, la pantalla permite crear la primera cuenta. Las otras se crean en
+**Administración → Usuarios**. Los socios no ingresan al sistema.
+
 La base se crea o se prepara automáticamente en `biblioteca.db`. También se
 puede indicar otra ruta con la variable de entorno `BIBLIOTECA_DB`.
 
@@ -61,6 +68,8 @@ python main.py
 La base ficticia se puede regenerar con `python crear_base_demo.py`. Ese
 script usa el ORM y las operaciones de `RedBibliotecas`, no SQL manual, y
 reemplaza `biblioteca_demo.db` con datos de ejemplo completos.
+La regeneración también elimina sus cuentas: la nueva base pedirá crear la
+primera. El generador no contiene ni vuelve a cargar credenciales del personal.
 
 La base local de trabajo es `biblioteca.db`: no se versiona porque puede
 contener datos propios. La base ficticia `biblioteca_demo.db` sí se versiona
@@ -87,6 +96,8 @@ para que el proyecto se pueda abrir y probar sin cargar datos a mano.
 │   ├── remito.py            Remito, asignaciones, historial y Observer
 │   ├── reportes.py          Factory Method y los cuatro reportes
 │   ├── reportes_pdf.py      presentación y descarga de los resultados en PDF
+│   ├── reportes_graficos.py series compartidas por los gráficos web y PDF
+│   ├── usuarios.py          cuentas del personal y hashes de contraseñas
 │   ├── serializadores.py    conversión de entidades a JSON
 │   ├── validaciones.py      validaciones compartidas
 │   ├── errores.py           excepciones del dominio
@@ -107,6 +118,21 @@ para que el proyecto se pueda abrir y probar sin cargar datos a mano.
 
 Todas las rutas de negocio se publican bajo `/api` y devuelven JSON.
 Los cuatro reportes también permiten descargar PDF con `formato=pdf`.
+Las rutas de negocio, usuarios y descargas requieren una sesión activa.
+
+### Acceso del personal
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/sesion` | Usuario de la sesión y si falta crear la primera cuenta; pública |
+| POST | `/api/login` | Recibe `usuario` y `contrasena`; pública |
+| POST | `/api/primer-usuario` | Recibe `usuario`, `nombre` y `contrasena`; después del primer registro responde 403 |
+| POST | `/api/logout` | Cierra la sesión |
+| GET/POST | `/api/usuarios` | Listar o crear cuentas del personal |
+| POST | `/api/usuarios/<id>/estado` | Activar o desactivar, con `{"activa": true}` o `false` |
+
+El servidor devuelve 401 si falta la sesión o la cuenta está desactivada.
+Una cuenta no puede desactivarse a sí misma y las cuentas no se borran.
 
 ### Consultas generales
 
@@ -192,8 +218,16 @@ Los reportes aceptan filtros opcionales por query string. Por ejemplo:
 Para descargar un documento, usá **Reportes → Generar reporte → Descargar PDF**.
 También podés solicitar, por ejemplo,
 `/api/reportes/disponibilidad?sede=S1&isbn=L1&formato=pdf`.
-El PDF incluye filtros, alcance, utilidad para la gestión y tablas de resultados;
+El PDF incluye filtros, alcance, utilidad para la gestión, gráficos y tablas de resultados;
 se genera en memoria con ReportLab y consulta los datos al descargar.
+
+`reportes_graficos.preparar_graficos()` transforma las filas ya calculadas en
+etiquetas, series, colores y valores. El JSON incluye `graficos`; HTML/CSS
+dibuja las barras en pantalla y ReportLab dibuja las mismas series en PDF.
+Vencidos es parte de activos: el gráfico separa al día (`activos - vencidos`)
+y vencidos. Disponibilidad suma por sede únicamente los estados de las copias,
+sin contar las reservas como ejemplares. Movimiento separa cantidades de envíos
+y horas de tránsito. Se conserva todo el ranking y una escala común por gráfico.
 
 Los errores se devuelven con un código HTTP y un cuerpo como
 `{"error": "mensaje comprensible"}`.
@@ -300,9 +334,9 @@ algo falla, no cambia el estado ni el historial.
 - Cada operación de negocio confirma con `commit`; ante un error se hace
   `rollback`.
 - Al abrir una base existente, `preparar_base`:
-  1. crea las tablas que falten;
-  2. si falta la columna `estado_fisico_recepcion` en `remito_ejemplares`, crea
-     un respaldo `.respaldo-AAAA...` y agrega la columna;
+  1. respalda antes de agregar la tabla `usuarios` o la columna
+     `estado_fisico_recepcion` en `remito_ejemplares`;
+  2. agrega la columna y crea mediante el ORM las tablas que falten;
   3. siembra la configuración que falte;
   4. revisa los datos heredados y los informa en `/api/salud` sin corregirlos.
 - La revisión comprueba también la secuencia y cronología del historial,
@@ -312,12 +346,43 @@ algo falla, no cambia el estado ni el historial.
   `/api/salud` sigue disponible con las observaciones de la revisión inicial;
   los datos originales se conservan para su corrección explícita.
 
+### Decisión de alcance: login del personal
+
+Se incorporó a pedido de la cátedra. `Usuario` está en `backend/usuarios.py`,
+separado de `modelos.py` y de `RedBibliotecas`. La tabla `usuarios` guarda
+`id`, `usuario` único (sin distinguir mayúsculas), `nombre`, `password_hash`
+y `activa`. Las tres cuentas de la demo se cargaron una sola vez en la base;
+el código de producción no contiene usuarios ni contraseñas iniciales.
+
+Werkzeug genera un hash con salt y comprueba la contraseña al ingresar. Se
+exigen entre 8 y 256 caracteres. La API devuelve solo id, usuario, nombre y
+estado: nunca el hash. Usuario inexistente, contraseña incorrecta y cuenta
+desactivada producen el mismo mensaje: «Usuario o contraseña incorrectos».
+
+Flask guarda únicamente `usuario_id` en su cookie de sesión firmada. La firma
+usa una clave creada con `secrets.token_hex(32)` y conservada en
+`instance/clave_secreta`, excluida de Git. Una cookie firmada no está cifrada:
+por eso no contiene contraseñas ni otros datos personales. Tiene `HttpOnly`
+y `SameSite=Lax`. El `before_request` de `app.py` consulta en cada petición
+que la cuenta exista y esté activa; por eso una baja bloquea también las
+sesiones ya abiertas. Al ingresar o salir se limpia la sesión anterior.
+
+El registro inicial usa el id 1 para que la clave primaria impida dos altas
+iniciales simultáneas. Después de crear cualquier cuenta, devuelve 403.
+Los demás registros requieren autenticación. Todos los usuarios tienen los
+mismos permisos. El servidor continúa escuchando solo en `127.0.0.1`.
+
+Alcance local: no hay roles, bloqueo por intentos, cambio o recuperación de
+contraseña, token CSRF ni HTTPS. `SameSite=Lax` aporta una mitigación parcial
+de CSRF; no equivale a una protección completa con token.
+
 ## Pruebas
 
 ```powershell
 python -m unittest discover -s tests -v
 node --check frontend/app.js
 node tests/test_frontend.js
+node tests/test_acceso_frontend.js
 ```
 
 La suite usa bases SQLite temporales. Cubre la API, las reglas de préstamo y
@@ -325,6 +390,8 @@ retorno, reservas, reportes, patrones, persistencia, migración y validaciones
 atómicas. `tests/test_frontend.js` ejecuta con Node las funciones de la
 interfaz que arman el trayecto del remito, el formato de fechas y el envío de
 la recepción.
+También se comprueban los controles de acceso, bajas, persistencia de cuentas,
+hashes, cookie, migración y las agrupaciones compartidas de los gráficos.
 
 ## Interfaz web
 

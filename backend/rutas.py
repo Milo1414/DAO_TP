@@ -14,6 +14,7 @@ from backend.reportes import (
     FabricaReporteMovimientoEnvios,
 )
 from backend.reportes_pdf import generar_pdf
+from backend.reportes_graficos import preparar_graficos
 from backend.serializadores import (
     ejemplar_a_diccionario,
     libro_a_diccionario,
@@ -514,7 +515,8 @@ def recibir_remito(codigo):
 def responder_reporte(tipo, reporte, filas, parametros):
     formato = argumento("formato")
     if formato is None or formato == "json":
-        return respuesta({"reporte": reporte.nombre(), "filas": filas})
+        return respuesta({"reporte": reporte.nombre(), "filas": filas,
+                          "graficos": preparar_graficos(tipo, filas)})
     if formato != "pdf":
         raise ErrorDatosInvalidos("El formato del reporte debe ser json o pdf.")
     archivo = generar_pdf(tipo, reporte.nombre(), filas, parametros)

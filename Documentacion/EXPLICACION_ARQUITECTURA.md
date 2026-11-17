@@ -1042,7 +1042,15 @@ La API no instancia los productos concretos de reporte, pero conoce sus fábrica
 
 `PROBLEMAS_BASE` se calcula en el arranque. La respuesta `estado: "ok"` de `/api/salud` puede coexistir con una lista de problemas heredados; no certifica por sí sola que todas las reglas del dominio estén satisfechas.
 
-No hay autenticación, roles de personal/lector, notificaciones externas, historial de lecturas ni recomendaciones. El catálogo implementado se centra en libros y copias; no hay una jerarquía de otros tipos de material.
+Actualización del 17/11/2026: se agregó autenticación del personal en
+`backend/usuarios.py` y `backend/app.py`, con cuentas persistidas, hashes,
+sesión firmada y autorización antes de cada petición. Los socios no ingresan.
+Los reportes incorporan gráficos en pantalla y PDF mediante
+`reportes_graficos.py` y `reportes_pdf.py`. El detalle actualizado está en el
+README y en las secciones 12.6 y 13.6 del informe de estudio.
+No hay roles, notificaciones externas, historial de lecturas ni recomendaciones.
+El catálogo implementado se centra en libros y copias; no hay una jerarquía de
+otros tipos de material.
 
 ## 19. Comprobaciones realizadas en esta exploración
 

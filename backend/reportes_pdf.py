@@ -3,11 +3,14 @@ import datetime
 from io import BytesIO
 from xml.sax.saxutils import escape
 
+from reportlab.graphics.shapes import Drawing, Line, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from backend.reportes_graficos import preparar_graficos
 
 
 ETIQUETAS = {
@@ -160,6 +163,50 @@ def agregar_pie(pagina, documento):
     pagina.restoreState()
 
 
+def dibujar_barras(grafico, grupo, ancho):
+    alto = len(grafico["series"]) * 19 + 28
+    dibujo = Drawing(ancho, alto)
+    izquierda = 130
+    ancho_barras = ancho - izquierda - 85
+    escala = max(grafico["maximo"], 1)
+    dibujo.add(Line(izquierda, 22, izquierda, alto - 3, strokeColor=colors.HexColor("#ccd8df")))
+    dibujo.add(Line(izquierda, 22, izquierda + ancho_barras, 22,
+                    strokeColor=colors.HexColor("#ccd8df")))
+    dibujo.add(String(izquierda, 8, "0", fontSize=8, fillColor=colors.HexColor("#526773")))
+    extremo = formatear_valor("", escala) + " " + grafico["unidad"]
+    dibujo.add(String(izquierda + ancho_barras, 8, extremo, textAnchor="end",
+                      fontSize=8, fillColor=colors.HexColor("#526773")))
+    for indice in range(len(grafico["series"])):
+        serie = grafico["series"][indice]
+        valor = grupo["valores"][indice]
+        posicion = alto - 18 - indice * 19
+        largo = ancho_barras * valor / escala
+        dibujo.add(String(0, posicion + 1, serie["nombre"], fontSize=9))
+        dibujo.add(Rect(izquierda, posicion, largo, 10,
+                        fillColor=colors.HexColor(serie["color"]), strokeColor=None))
+        dibujo.add(String(izquierda + largo + 5, posicion + 1, formatear_valor("", valor),
+                          fontSize=9))
+    return dibujo
+
+
+def agregar_graficos(contenido, tipo, filas, ancho, estilos):
+    for grafico in preparar_graficos(tipo, filas):
+        encabezado = [Paragraph(escape(grafico["titulo"]), estilos["Heading2"])]
+        encabezado.append(Paragraph("Unidad: " + grafico["unidad"] +
+                                   ". Escala común para los grupos de este gráfico.", estilos["Normal"]))
+        if grafico["maximo"] == 0:
+            encabezado.append(Paragraph("Todos los valores son cero.", estilos["Normal"]))
+        if grafico["unidad"] == "horas":
+            encabezado.append(Paragraph("Cero también puede indicar que no hay duraciones disponibles.",
+                                        estilos["Normal"]))
+        for grupo in grafico["grupos"]:
+            etiqueta = Paragraph(escape(grupo["etiqueta"]), estilos["Normal"])
+            dibujo = dibujar_barras(grafico, grupo, ancho)
+            contenido.append(KeepTogether(encabezado + [etiqueta, dibujo]))
+            encabezado = []
+        contenido.append(Spacer(1, 4 * mm))
+
+
 def generar_pdf(tipo, titulo, filas, parametros):
     utilidad, alcance, bloques = contenido_reporte(tipo)
     archivo = BytesIO()
@@ -212,6 +259,7 @@ def generar_pdf(tipo, titulo, filas, parametros):
     if len(filas) == 0:
         contenido.append(Paragraph("Sin datos para los filtros seleccionados.", estilos["Heading2"]))
     else:
+        agregar_graficos(contenido, tipo, filas, documento.width, estilos)
         for nombre, columnas in bloques:
             contenido.append(Paragraph(nombre, estilos["Heading2"]))
             contenido.append(crear_tabla(filas, columnas, documento.width, estilos))
