@@ -318,6 +318,19 @@ Comprobaciones finales:
 - `git -c core.whitespace=cr-at-eol diff --check`: correcto; se respeta el
   formato CRLF del informe existente.
 
+## Actualización del informe de estudio, 17/11/2026
+
+- Se alineó `INFORME_ESTUDIO_BACKEND.md` con el login, la migración de
+  `usuarios`, los gráficos compartidos de app/PDF y las pruebas ampliadas.
+- Se documentaron las tres cuentas activas en demo y práctica, la independencia
+  de ambos archivos, el respaldo de la carga y el comando de arranque con `.venv`.
+- Se consultaron ambas bases en modo de solo lectura y se contrastaron los
+  recorridos con el código. Esta revisión fue documental: no se inició el
+  servidor ni se repitieron las pruebas de la implementación.
+- Se verificaron enlaces locales, anclas, bloques de código, el comando de
+  práctica y el conteo de 84 métodos de prueba escritos; el diff no tiene
+  errores de espacios, respetando el formato CRLF existente.
+
 ## Cómo continuar
 
 Las instrucciones de arranque y comprobación están en el

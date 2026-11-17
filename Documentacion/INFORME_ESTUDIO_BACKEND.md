@@ -2,15 +2,19 @@
 
 Exploración del código y de la base demo realizada el **16 de noviembre de 2026**. Preparado para empezar desde cero y poder explicar la implementación en la presentación del 17 de noviembre. El foco es el backend y la base de datos; del frontend se explica únicamente su comunicación con el servidor.
 
-La fuente principal de este informe es el código actual. Se contrastó con las dos páginas de `tema1.pdf`, con [ENUNCIADO.md](ENUNCIADO.md) y con [FASES.md](FASES.md). Las exigencias de la cátedra se distinguen de las decisiones tomadas por el proyecto. La exploración inicial fue de lectura; el informe incluye la incorporación posterior de las descargas PDF, sin cambios en el modelo ni en la base de datos.
+**Actualizado el 17 de noviembre de 2026:** incluye el login del personal, los gráficos en pantalla y PDF, y las tres cuentas cargadas tanto en la demo como en la base de práctica.
+
+La fuente principal de este informe es el código actual. Se contrastó con las dos páginas de `tema1.pdf`, con [ENUNCIADO.md](ENUNCIADO.md) y con [FASES.md](FASES.md). Las exigencias de la cátedra se distinguen de las decisiones tomadas por el proyecto. La exploración inicial fue de lectura; después se incorporaron las descargas PDF, los gráficos y la tabla de seguridad `usuarios`. Las entidades y los dos patrones del dominio conservan sus responsabilidades.
 
 **Cómo usarlo:** primero leé los capítulos 1 a 4 para ubicarte; después seguí el préstamo completo del capítulo 7. Estudiá especialmente Factory Method y Observer, capítulos 8 y 9. Cerrá con la base de datos, los reportes y las preguntas de defensa. El capítulo 17 propone un recorrido de repaso de tres horas.
 
 **Para preparar una defensa principalmente hablada con el sistema en pantalla**, empezá por la [sección 17.5](#defensa-hablada): reúne el recorrido desde el alta del libro hasta la devolución, las decisiones de diseño, los patrones y la interpretación de reportes según los temas mencionados por el otro grupo.
 
-**Reportes para la entrega:** según el testimonio completo del otro grupo, el profesor exigió generar los reportes en PDF y justificar su utilidad para el responsable del negocio. **Los cuatro reportes ahora permiten descargar un PDF desde la aplicación**, con filtros, resultados, alcance y utilidad de gestión. La [sección 13.6](#reportes-pdf) explica la implementación y cómo demostrarla en la defensa.
+**Reportes para la entrega:** según el testimonio completo del otro grupo, el profesor exigió generar los reportes en PDF y justificar su utilidad para el responsable del negocio. **Los cuatro reportes tienen gráficos y tablas en la app y en su PDF**, con los mismos cálculos y filtros. La [sección 13.6](#reportes-pdf) explica la exportación y la sección 13.7 detalla las series de cada gráfico.
 
-**Advertencia sobre la documentación anterior:** `EXPLICACION_ARQUITECTURA.md` ya estaba en la carpeta, sin seguimiento de Git. Tiene información que quedó vieja: menciona 40 pruebas, niega algunas cancelaciones con remito y describe una recepción sin estado físico informado. El código actual tiene 60 métodos de prueba, permite esas cancelaciones en determinados momentos y exige la revisión física al recibir. Para esos temas usá este informe y el código actual.
+**Acceso para practicar:** `CamiloMartin`, `CatalinaZapata` y `MelinaGigena` están activos en `biblioteca_demo.db` y `biblioteca_practica.db`, con las contraseñas indicadas para cada cuenta, guardadas como hashes. El comando de arranque con la base de práctica está en la [sección 15.4](#arranque-practica).
+
+**Sobre los datos históricos de documentación:** las referencias a 40, 60 y 68 pruebas corresponden a versiones anteriores. La suite ampliada tiene 84 pruebas Python y dos comprobaciones de interfaz con Node; la evidencia ejecutada está en el capítulo 14. Para explicar el funcionamiento actual, usá este informe junto con el código.
 
 <a id="capitulo-1"></a>
 
@@ -129,9 +133,9 @@ La red tiene una instancia de módulo en `rutas.py`: `red = RedBibliotecas()`. N
 
 ### 3.1 Relación frontend-backend, sin estudiar la interfaz
 
-En [frontend/app.js](../frontend/app.js), `pedir()` —línea 334— usa `fetch` y el prefijo `/api`. Si manda datos, los convierte con `JSON.stringify` y declara `Content-Type: application/json`. Lee la respuesta JSON y, si el código HTTP indica error, muestra el mensaje del servidor.
+En [frontend/app.js](../frontend/app.js), `pedir()` usa `fetch` y el prefijo `/api`. Si manda datos, los convierte con `JSON.stringify` y declara `Content-Type: application/json`. Lee la respuesta JSON y, si el código HTTP indica error, muestra el mensaje del servidor. La cookie de sesión acompaña las peticiones al mismo servidor; JavaScript no lee su contenido. Ante un 401, se limpian los datos privados mostrados y se vuelve al ingreso.
 
-`manejarFormulario()` —línea 1433— transforma la acción del usuario en una llamada HTTP. `refrescar()` —línea 392— vuelve a consultar `/api/listados` y `/api/salud`. La copia de datos del navegador sirve para mostrar información; SQLite y las operaciones del backend siguen siendo la referencia para aceptar o rechazar acciones.
+`consultarSesion()` pide primero `/api/sesion`. Tras ingresar, `manejarFormulario()` transforma la acción del usuario en una llamada HTTP y `refrescar()` consulta `/api/listados` y `/api/salud`. La copia de datos del navegador sirve para mostrar información; SQLite y las operaciones del backend siguen siendo la referencia para aceptar o rechazar acciones.
 
 Flask sirve la página en `/`, y los recursos en `/app.js` y `/styles.css`. Aunque el comentario inicial de `app.py` menciona `/frontend`, **esas son las URLs que realmente usa `index.html`**. Se sirven desde la carpeta `frontend`, que no es lo mismo que un prefijo de URL.
 
@@ -209,11 +213,13 @@ Al ejecutar `python main.py`, la condición `if __name__ == "__main__"` llama a 
 1. Elige la ruta: argumento explícito, variable de entorno `BIBLIOTECA_DB` o `biblioteca.db` en la raíz, en ese orden.
 2. Convierte la ruta a absoluta y crea la carpeta si falta.
 3. Crea Flask sin carpeta estática automática y configura la URI de SQLite.
-4. Permite incorporar configuración extra, útil para pruebas.
-5. Ejecuta `db.init_app(aplicacion)` y registra el blueprint de la API.
-6. Dentro de `app_context()`, llama a `preparar_base()` y conserva problemas, respaldo y cambios detectados.
-7. Define cómo servir la página y sus archivos.
-8. Registra manejadores de errores y devuelve la aplicación.
+4. Configura la cookie de sesión con `HttpOnly` y `SameSite=Lax`, y permite configuración extra para pruebas.
+5. Si no recibió una clave explícita, `cargar_clave_secreta()` crea o lee `instance/clave_secreta`. Se genera una vez y se reutiliza al reiniciar.
+6. Ejecuta `db.init_app(aplicacion)` y registra el blueprint de la API.
+7. Dentro de `app_context()`, llama a `preparar_base()` y conserva problemas, respaldo y cambios detectados.
+8. Registra `comprobar_acceso()` con `before_request` y las rutas de sesión y usuarios. El control se ejecuta al recibir cada petición, antes de la operación solicitada.
+9. Define cómo servir la página y sus archivos.
+10. Registra manejadores de errores y devuelve la aplicación.
 
 El **contexto de aplicación** permite que Flask-SQLAlchemy sepa qué aplicación y configuración usar. Por eso también se abre un contexto en scripts y pruebas que acceden a la base fuera de una petición normal.
 
@@ -882,7 +888,7 @@ La multa se guarda como `Float` y la tarifa se interpreta con `float`. Es la ele
 
 ## 11. Preparación, migración y revisión de datos
 
-Referencia: [migracion.py](../backend/migracion.py), `preparar_base()` en línea 37 y `revisar_datos_heredados()` en línea 146.
+Referencia: [migracion.py](../backend/migracion.py), especialmente `preparar_base()`, `_migrar_columnas()` y `revisar_datos_heredados()`.
 
 Este archivo resuelve un problema diferente del préstamo diario: que la aplicación pueda abrir una base ya existente, incorporar un cambio conocido del esquema y avisar si los datos viejos incumplen reglas actuales.
 
@@ -900,13 +906,14 @@ Este archivo resuelve un problema diferente del préstamo diario: que la aplicac
 
 ### 11.2 La migración implementada es concreta
 
-`_migrar_columnas()` inspecciona si existe `remito_ejemplares` y si le falta `estado_fisico_recepcion`. Solo en ese caso:
+`_migrar_columnas()` comprueba dos cambios conocidos:
 
-- llama a `_crear_respaldo()`, que copia el archivo con una marca temporal;
-- ejecuta `ALTER TABLE ... ADD COLUMN ...`;
-- confirma e informa el cambio.
+- si existe `remito_ejemplares` y falta `estado_fisico_recepcion`;
+- si la base ya tiene tablas y todavía no existe `usuarios`.
 
-Si la columna ya existe, no repite respaldo ni migración. El respaldo corresponde a ese cambio específico: el código no implementa una garantía genérica de respaldo previo a cualquier modificación imaginable del esquema. Las tablas faltantes se crean después mediante el ORM.
+Si hace falta alguno, crea un respaldo con marca temporal antes del cambio. Para la columna ejecuta `ALTER TABLE ... ADD COLUMN ...` y confirma. Para `usuarios`, registra la ampliación y `db.create_all()` crea la tabla mediante el ORM inmediatamente después. Si ambos cambios hacen falta, usa un mismo respaldo previo.
+
+Cuando esos cambios ya están presentes, no repite el respaldo ni la migración. Sigue siendo una preparación específica: `create_all()` crea tablas faltantes, pero no transforma automáticamente cualquier esquema viejo ni garantiza respaldo para cambios futuros no implementados.
 
 La columna nueva es opcional. Una recepción antigua puede quedar sin ese dato histórico; no se inventa la condición observada mirando el estado actual del ejemplar.
 
@@ -935,7 +942,7 @@ La comparación temporal de préstamos usa intervalos que permiten terminar y vo
 | Función o grupo | Papel |
 |---|---|
 | `_nombres_de_tablas`, `_nombres_de_columnas`, `_leer_tabla` | Inspección y lectura del esquema; los nombres utilizados provienen del código. |
-| `_crear_respaldo` | Conserva una copia antes del `ALTER TABLE` implementado. |
+| `_crear_respaldo` | Conserva una copia antes de agregar la columna de recepción o la tabla de usuarios a una base existente. |
 | `_agregar` | Añade un diagnóstico con etiqueta y detalle. |
 | `_probar` | Ejecuta un validador y convierte una excepción en observación, para seguir revisando. |
 | `_fecha`, `_momento` | Interpretan valores heredados y detectan formatos inválidos. |
@@ -1023,6 +1030,8 @@ La multa estimada de un activo se calcula con la tarifa vigente. La multa defini
 | Consulta u operación exitosa | 200 | Listar préstamos o devolver uno. |
 | Recurso creado | 201 | Registrar solicitud o entregar y crear préstamo. |
 | `ErrorDatosInvalidos` | 400 | Fecha imposible, teléfono inválido o transición de remito inválida. |
+| Acceso sin sesión válida | 401 | Falta la sesión o la cuenta fue desactivada; también se usa para un login incorrecto. |
+| Registro inicial cerrado | 403 | Ya existe una cuenta y se intenta crear otra por `/api/primer-usuario`. |
 | `ErrorNoEncontrado` | 404 | Socio o ejemplar inexistente. |
 | `ErrorConflicto` | 409 | Código duplicado, socio inhabilitado o copia ya asignada. |
 | `IntegrityError` del motor | 409 | Violación de una relación o restricción SQL. |
@@ -1080,8 +1089,9 @@ y de `modelos.py`. Su tabla guarda `id`, `usuario`, `nombre`, `password_hash` y
    la cookie, porque la autorización se vuelve a comprobar en el servidor.
 7. El primer registro solo funciona con la tabla vacía; después devuelve 403.
    El id 1 fijo y su clave primaria impiden dos registros iniciales simultáneos.
-   Las tres cuentas solicitadas ya están cargadas en la demo mediante una
-   operación puntual. El código no contiene credenciales precargadas.
+   Las tres cuentas solicitadas ya están cargadas en la demo y en la base de
+   práctica mediante operaciones puntuales. El código no contiene credenciales
+   precargadas ni crea esos usuarios automáticamente al arrancar.
 8. `POST /api/logout` limpia la sesión. Ante un 401, el cliente elimina sus
    listados, usuarios y resultados guardados y vuelve al formulario de ingreso.
 
@@ -1094,6 +1104,29 @@ aporta una mitigación parcial; no reemplaza una protección CSRF completa.
 socios. Las cuentas se guardan en SQLite con un hash de contraseña. Flask firma
 una cookie con el id y el servidor verifica la cuenta en cada petición. Ocultar
 el menú es presentación; la autorización efectiva ocurre en `before_request`”.
+
+### 12.7 Cuentas disponibles en la demo y en la práctica
+
+Al 17/11/2026 se comprobaron estas cuentas en ambos archivos:
+
+| Usuario | `biblioteca_demo.db` | `biblioteca_practica.db` |
+|---|---|---|
+| `CamiloMartin` | Activa | Activa |
+| `CatalinaZapata` | Activa | Activa |
+| `MelinaGigena` | Activa | Activa |
+
+Tienen las mismas contraseñas indicadas para cada persona y los mismos permisos
+de personal. La carga de la práctica conservó sus datos de negocio, contó con
+respaldo previo y se verificó el ingreso de los tres usuarios con el cliente
+HTTP de Flask. No se almacenaron las contraseñas originales ni se escribieron
+en los archivos del proyecto.
+
+**Son bases independientes.** `BIBLIOTECA_DB` selecciona qué archivo consulta
+la aplicación, incluidas sus cuentas. Crear o desactivar un usuario en una no
+lo modifica en la otra. La demo está versionada; la práctica y sus respaldos
+son archivos locales excluidos de Git. En ambas, el primer registro ya está
+cerrado porque existen cuentas: al abrir o recargar la página corresponde
+mostrar el login. Una base nueva sin cuentas sí muestra el alta inicial.
 
 <a id="capitulo-13"></a>
 
@@ -1207,6 +1240,53 @@ Una conclusión debe separar observación de propuesta: “Esta sede tiene reser
 
 **Cómo defender la exportación:** generar el reporte, pulsar **Descargar PDF**, abrir el archivo y señalar sus filtros. Explicar una fila, el origen de un cálculo y una decisión que pueda tomar la dirección. La descarga es una función del sistema que genera un documento en el backend. Si los registros no cambiaron, sus números coinciden con los de la pantalla porque ambos formatos usan el mismo cálculo.
 
+### 13.7 Gráficos en ambos formatos: datos y recorrido
+
+`backend/reportes_graficos.py` prepara los datos después de ejecutar el reporte.
+`preparar_graficos(tipo, filas)` usa condiciones y recorridos explícitos para
+transformar las filas en series. `crear_grafico()` recorre los valores para
+encontrar el máximo y devuelve un diccionario con cinco campos:
+
+| Campo | Contenido |
+|---|---|
+| `titulo` | Qué comparación muestra el gráfico. |
+| `unidad` | Préstamos, ejemplares, solicitudes, envíos u horas. |
+| `series` | Nombre y color de cada serie. |
+| `grupos` | Etiqueta de cada sede, libro o trayecto y su lista de valores. |
+| `maximo` | Mayor valor de todas sus barras, para compartir una escala. |
+
+| Reporte | Series y agrupación del gráfico | Qué permite comparar |
+|---|---|---|
+| Activos/vencidos | Al día y vencidos por sede. Al día = activos menos vencidos. | Distribución de los préstamos y atrasos, sin contar dos veces los vencidos. |
+| Disponibilidad | Disponibles, prestados, apartados, en tránsito, en reparación y pendientes de retorno, sumados por sede sobre las filas filtradas. | Cómo está distribuido el inventario. Las reservas son demanda y no se suman como copias. |
+| Libros solicitados | Cantidad de solicitudes por libro, en el orden del ranking completo. | Qué títulos generan mayor demanda interbibliotecaria. |
+| Movimiento | Recibidos, pendientes y cancelados por trayecto; en otro gráfico, promedio de horas de tránsito. | Volumen y demora logística, con cantidades y tiempos en unidades separadas. |
+
+El recorrido para explicarlo es:
+
+```text
+Fábrica concreta -> Reporte.generar() -> filas filtradas
+                                         |
+                          preparar_graficos(tipo, filas)
+                              /                    \
+                   JSON con graficos       ReportLab: dibujos vectoriales
+                   -> barras en la app     -> barras en el PDF
+```
+
+El frontend presenta los valores que recibe. No vuelve a consultar SQLite ni
+reimplementa las agrupaciones. El PDF también parte de las filas del reporte:
+`agregar_graficos()` prepara las series y `dibujar_barras()` arma textos,
+rectángulos y ejes con ReportLab. `KeepTogether` mantiene la etiqueta con sus
+barras y el título con el primer grupo al cambiar de página.
+
+Sin filas se informa que no hay datos. Con valores todos en cero, se indica esa
+situación y se usa una escala mínima de 1 para evitar dividir por cero. No se
+inventan tendencias: el inventario es actual y el promedio logístico cero
+también puede indicar ausencia de duraciones. Las tablas conservan el detalle
+completo. Se usaron HTML/CSS y ReportLab ya disponibles, sin otra dependencia
+ni un nuevo patrón: Factory Method sigue creando los reportes y Observer sigue
+registrando los cambios del remito.
+
 <a id="capitulo-14"></a>
 
 ## 14. Pruebas: evidencia disponible y comprobaciones de esta exploración
@@ -1216,6 +1296,10 @@ Una conclusión debe separar observación de propuesta: “Esta sede tiene reser
 Una prueba prepara una situación, ejecuta una acción y compara el resultado con lo esperado. Si esperás un rechazo, no alcanza con revisar el mensaje: también conviene verificar que no quedaron estados modificados o filas adicionales.
 
 `PruebaBase` de `tests/apoyo.py` crea una carpeta temporal y una SQLite distinta por caso. Construye la aplicación real, abre contexto y obtiene un cliente Flask. El cliente hace peticiones sin arrancar un servidor en un puerto ni abrir un navegador.
+
+También registra una cuenta de prueba por el endpoint inicial y conserva su
+sesión en el cliente. Las pruebas de negocio operan autenticadas; el control
+de acceso no se desactiva para hacerlas pasar.
 
 Sus ayudas `crear_sede`, `crear_socio`, `crear_libro`, `crear_ejemplar`, `datos_basicos`, `solicitud_local`, `solicitud_interbibliotecaria`, `entregar_local`, `crear_remito`, `mover_remito` y `devolver` preparan circuitos repetidos. `pedir` centraliza llamadas HTTP y `fecha` convierte fechas de apoyo.
 
@@ -1230,19 +1314,22 @@ Al terminar, `tearDown()` retira la sesión, libera el motor, cierra contexto y 
 | `test_patrones.py` | Abstractas no instanciables, producto correcto de cada fábrica, reportes vacíos, suscripción/desuscripción, transición inválida sin notificación y límite de una copia por remito. |
 | `test_reportes.py` | Valores esperados de atrasos, multas, disponibilidad sin duplicación, filtros y tiempos de envío. |
 | `test_reportes_pdf.py` | Cuatro descargas como adjuntos, igualdad con las filas JSON, filtros normalizados, multas a fecha de referencia, resultados vacíos, errores y títulos largos en varias páginas. |
-| `test_migracion.py` | Se agrega columna con respaldo, no se repite la migración y se informa un dato inválido sin corregirlo. |
+| `test_migracion.py` | Se agregan columna y tabla de usuarios con respaldo, no se repite la migración y se informa un dato inválido sin corregirlo. |
+| `test_usuarios.py` | API protegida, primer registro y bloqueo posterior, hashes con salt, mensaje genérico, cookie, cierre de sesión, bajas, reactivación y persistencia. |
+| `test_reportes_graficos.py` | Vencidos dentro de activos, inventario agrupado sin sumar reservas como copias, ranking completo, unidades separadas, filtros y valores cero. |
 | `test_regresiones.py` | Cancelaciones según etapa, retorno sin préstamo previo, recepción dañada, recuperación inválida, cronología y rollback incluso ante un fallo posterior a modificar objetos. |
 | `test_frontend.js` | El cliente envía `estado_fisico` al recibir; representa fechas y trayectoria según datos del backend. Usa funciones en un contexto Node, no un navegador completo. |
+| `test_acceso_frontend.js` | Primer acceso, login, limpieza de datos ante 401, cuenta propia sin botón de baja y barras proporcionales, con etiquetas escapadas y ceros. |
 
 El conteo actual es **84 pruebas Python**, incluidas las de acceso del personal, gráficos y migración de usuarios. Contar pruebas no demuestra que hayan pasado ni que cubran todos los casos posibles. La ejecución comprobada se registra a continuación.
 
-### 14.3 Qué se ejecutó realmente el 16 de noviembre de 2026
+### 14.3 Evidencia de las comprobaciones del 16 y 17 de noviembre de 2026
 
 | Comprobación | Resultado y alcance |
 |---|---|
 | Lectura de `tema1.pdf` | Se extrajo el texto y se renderizaron e inspeccionaron sus dos páginas con PyMuPDF disponible en Python 3.11. Se contrastaron requisitos con la transcripción. |
 | Sintaxis Python con `ast.parse` | Los 25 archivos Python se pudieron analizar. No equivale a ejecutar el backend. |
-| Conteo estructural de API | 46 decoradores de rutas API en `rutas.py`; dos reglas adicionales declaradas en `app.py`. |
+| Conteo estructural de API actualizado | 46 declaraciones de rutas de negocio en `rutas.py` y siete de sesión y cuentas en `app.py`; este último también declara dos reglas para servir la página y los archivos. |
 | `PRAGMA integrity_check` de la demo, modo solo lectura | `ok`. Es una comprobación estructural de SQLite. |
 | `PRAGMA foreign_key_check` de la demo, modo solo lectura | Sin referencias inválidas informadas. No demuestra todas las reglas de negocio. |
 | Inspección de esquema y filas | Once tablas, relaciones y ejemplos consignados en este informe. |
@@ -1269,6 +1356,20 @@ El servidor temporal usó una copia de la demo y se detuvo al terminar.
 
 Con el servidor reiniciado sobre la misma base de práctica, las cuatro descargas respondieron HTTP 200 y `application/pdf`. Se probó además el botón en un navegador real: descargó movimiento y disponibilidad filtrada por S1/L1. La lectura del PDF descargado confirmó los filtros y que no incluía otros libros.
 
+### 14.4 Carga de cuentas en la base de práctica
+
+El 17/11/2026 se agregaron los tres usuarios a `biblioteca_practica.db` usando
+las operaciones de cuentas del backend. Antes se creó el respaldo
+`biblioteca_practica.db.respaldo-cuentas-20261117-145319-804195`.
+Cada ingreso respondió HTTP 200 y la sesión informó una cuenta activa.
+Se compararon las filas de las once tablas anteriores con su estado previo:
+los datos de negocio quedaron iguales y `PRAGMA integrity_check` devolvió `ok`.
+
+Para esta actualización documental se volvió a consultar en modo de solo
+lectura la tabla `usuarios` de ambas bases y se confirmaron las tres cuentas
+activas. No se inició el servidor ni se repitió la suite: las 84 pruebas del
+apartado anterior corresponden a la comprobación de la implementación.
+
 <a id="capitulo-15"></a>
 
 ## 15. La base demo y cómo usarla para explicar el sistema
@@ -1278,6 +1379,7 @@ Con el servidor reiniciado sobre la misma base de práctica, las cuatro descarga
 | Tabla | Filas |
 |---|---:|
 | configuracion | 2 |
+| usuarios, agregados el 17/11/2026 | 3 |
 | sedes | 4 |
 | socios | 6 |
 | libros | 6 |
@@ -1314,20 +1416,41 @@ Al **16/11/2026**, E4 acumula 48 días de atraso y E10 18: multas estimadas de 4
 
 `main()` del generador **elimina la demo anterior** si existe, crea la aplicación, carga datos y da de baja S4 al final. Usa operaciones de `RedBibliotecas`; no fabrica filas saltándose el dominio mediante SQL manual.
 
+Las cuentas del personal se agregaron después, mediante una carga puntual.
+El generador no contiene sus credenciales ni vuelve a crearlas: regenerar la
+demo elimina también sus usuarios y el siguiente acceso pedirá crear el
+primero. Esto afecta al archivo demo; no regenera la base de práctica.
+
 No necesitás ejecutar el generador para estudiar la base incluida. Abrir la aplicación con la demo permite modificarla al operar: para ensayar sin perder los casos originales, usá una copia de trabajo.
 
-### 15.4 Arranque para una demostración, cuando las dependencias ya estén instaladas
+<a id="arranque-practica"></a>
 
-Desde la raíz, en PowerShell:
+### 15.4 Arranque con la base demo o con la de práctica
+
+Desde la raíz del proyecto, en PowerShell, para usar **la base de práctica**:
 
 ```powershell
-$env:BIBLIOTECA_DB = "biblioteca_demo.db"
-python main.py
+$env:BIBLIOTECA_DB="biblioteca_practica.db"; .\.venv\Scripts\python.exe main.py
 ```
 
-Luego se abre `http://127.0.0.1:5000`. La variable se elige antes del arranque; de lo contrario el sistema usa `biblioteca.db` y puede parecer vacío aunque la demo exista al lado.
+Luego abrí `http://127.0.0.1:5000` e ingresá con una de las tres cuentas del
+apartado 12.7 y su contraseña ya indicada. Si la página estaba abierta antes
+de cargar los usuarios, recargala para que vuelva a consultar la sesión.
 
-El arranque se verificó posteriormente con el entorno `.venv` y `biblioteca_practica.db`, como se registra en 14.3. Para volver a iniciarlo con esa copia cuando el servidor esté detenido, usá `$env:BIBLIOTECA_DB = "biblioteca_practica.db"` y después `.\.venv\Scripts\python.exe -B main.py` desde la raíz. Así se utiliza el intérprete donde se instalaron las dependencias.
+Para usar **la demo versionada**, el comando es:
+
+```powershell
+$env:BIBLIOTECA_DB="biblioteca_demo.db"; .\.venv\Scripts\python.exe main.py
+```
+
+`BIBLIOTECA_DB` se elige antes del arranque. Sin esa variable, se usa por
+defecto `biblioteca.db`, que es otro archivo. El comando usa el intérprete de
+`.venv`, donde se instalaron las dependencias; el arranque imprime la ruta
+efectiva de SQLite para poder comprobar qué base se abrió.
+
+Las verificaciones anteriores del arranque se registran en 14.3. Los comandos
+de este apartado se documentan para que los ejecutes cuando corresponda;
+actualizar el informe no inicia la aplicación.
 
 <a id="capitulo-16"></a>
 
@@ -1441,13 +1564,25 @@ Se realiza la migración específica cuando corresponde y se revisan los datos c
 
 Las 84 pruebas Python pasaron con `.venv`, incluidas las de PDF, acceso del personal y gráficos; también las dos pruebas Node de la interfaz. Se generaron y revisaron los cuatro documentos con gráficos y datos de la demo; las pruebas cubren además documentos sin datos y de varias páginas. La exploración inicial había quedado limitada por dependencias faltantes; esa limitación se resolvió posteriormente, como se registra en 14.3. Las pruebas no equivalen a demostrar que no exista ningún defecto posible.
 
+**¿Los socios ingresan al sistema? ¿Los usuarios están escritos en el código?**
+
+Ingresan cuentas del personal, separadas de `Socio`. Se guardan en la tabla
+`usuarios` de la base seleccionada y la contraseña se comprueba contra un hash.
+Las tres cuentas de práctica se cargaron puntualmente en las bases, sin
+agregarlas al código de arranque. Todas tienen los mismos permisos; una baja
+se verifica en el servidor en la siguiente petición.
+
 **¿Qué mejorarían si el sistema creciera?**
 
 La numeración y los controles de concurrencia; restricciones adicionales en la base; consultas más eficientes y paginación; precisión monetaria y evolución de esquema más general. Son mejoras futuras: no hace falta atribuirlas a la implementación actual.
 
 **¿Los reportes ya se generan en PDF y sirven para la dirección?**
 
-Sí. Los cuatro reportes tienen el botón **Descargar PDF**. El backend calcula las filas mediante el reporte creado por Factory Method y las presenta con ReportLab. Cada documento incluye filtros, resultados, alcance y utilidad para decisiones de presupuesto, catálogo o logística. La sección 13.6 explica las funciones involucradas y los límites de cada análisis.
+Sí. Los cuatro reportes tienen gráficos y tablas tanto en pantalla como en su
+PDF. El backend calcula las filas mediante el reporte creado por Factory Method
+y prepara las series en `reportes_graficos.py`. El PDF las presenta con ReportLab
+e incluye filtros, alcance y utilidad para decisiones de presupuesto, catálogo
+o logística. Las secciones 13.6 y 13.7 explican el recorrido y sus límites.
 
 **¿Por qué aplicaron esos patrones? ¿No alcanza con hacerlo más simple?**
 
@@ -1473,7 +1608,7 @@ Si solo tenés una hora, priorizá las diferencias de entidades, el circuito int
 
 ### 17.2 Guion de unos siete minutos
 
-**Primer minuto: problema y arquitectura.** “Administramos una red de bibliotecas. Separamos la interfaz, la API Flask, el coordinador de casos de uso y las entidades persistidas con SQLAlchemy en SQLite. La API recibe JSON y llama a la red”. Mostrá el diagrama del capítulo 3.
+**Primer minuto: problema y arquitectura.** Iniciá sesión con una cuenta del personal. “Administramos una red de bibliotecas. Separamos la interfaz, la API Flask, el coordinador de casos de uso y las entidades persistidas con SQLAlchemy en SQLite. El servidor verifica la cuenta activa y después la API recibe JSON y llama a la red”. Mostrá el diagrama del capítulo 3.
 
 **Segundo minuto: modelo.** “Libro es la obra; Ejemplar es una copia. Solicitud aparta la copia, Reserva organiza la espera y Prestamo registra la entrega y vencimiento. El ejemplar separa pertenencia de ubicación”. Señalá los atributos en `catalogo.py`.
 
@@ -1496,9 +1631,9 @@ Si solo tenés una hora, priorizá las diferencias de entidades, el circuito int
 5. “Observer envía emails”. El observador actual registra historial.
 6. “Implementamos State o Singleton”. Los dos patrones defendidos son Factory Method y Observer.
 7. “Todas las reglas están garantizadas por las FK”. Muchas están en Python y algunos punteros no tienen FK.
-8. “Crear todas las tablas migra cualquier esquema viejo”. Existe una migración específica para una columna.
+8. “Crear todas las tablas migra cualquier esquema viejo”. Se contemplan específicamente la columna de recepción y la incorporación de usuarios; no una transformación genérica de cualquier esquema.
 9. “Los reportes muestran cualquier instante histórico”. Consultan el estado actual con los filtros y alcances explicados.
-10. “Las pruebas garantizan que no existe ningún error”. Las 60 pasaron en `.venv`, pero verifican los escenarios escritos, no todos los casos posibles.
+10. “Las pruebas garantizan que no existe ningún error”. Las 84 pasaron en `.venv`, pero verifican los escenarios escritos, no todos los casos posibles.
 
 ### 17.4 Ejercicio final, sin mirar el informe
 
