@@ -1,10 +1,9 @@
 # Rutas HTTP de la API.
 #
-# Cada ruta recibe datos, llama a una operacion de RedBibliotecas y devuelve
-# JSON. Las reglas de negocio no se repiten aca: viven en el dominio.
+# Routes delegate business operations to the domain and return JSON or PDF.
 import datetime
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, send_file
 
 from backend.errores import ErrorDatosInvalidos, ErrorNoEncontrado
 from backend.red import RedBibliotecas
@@ -14,6 +13,7 @@ from backend.reportes import (
     FabricaReporteLibrosSolicitados,
     FabricaReporteMovimientoEnvios,
 )
+from backend.reportes_pdf import generar_pdf
 from backend.serializadores import (
     ejemplar_a_diccionario,
     libro_a_diccionario,
@@ -511,24 +511,39 @@ def recibir_remito(codigo):
 
 # ---------- Reportes ----------
 
+def responder_reporte(tipo, reporte, filas, parametros):
+    formato = argumento("formato")
+    if formato is None or formato == "json":
+        return respuesta({"reporte": reporte.nombre(), "filas": filas})
+    if formato != "pdf":
+        raise ErrorDatosInvalidos("El formato del reporte debe ser json o pdf.")
+    archivo = generar_pdf(tipo, reporte.nombre(), filas, parametros)
+    fecha = datetime.date.today().isoformat()
+    nombre_archivo = "reporte-" + tipo + "-" + fecha + ".pdf"
+    return send_file(archivo, mimetype="application/pdf", as_attachment=True,
+                     download_name=nombre_archivo)
+
+
 @api.get("/reportes/activos-vencidos")
 def reporte_activos_vencidos():
     fecha_texto = argumento("fecha_referencia")
-    fecha = None
+    fecha = datetime.date.today()
     if fecha_texto is not None:
         fecha = parsear_fecha(fecha_texto, "fecha_referencia")
     fabrica = FabricaReporteActivosVencidos()
     reporte = fabrica.crear_reporte()
-    filas = reporte.generar(red, {"fecha_referencia": fecha})
-    return respuesta({"reporte": reporte.nombre(), "filas": filas})
+    parametros = {"fecha_referencia": fecha}
+    filas = reporte.generar(red, parametros)
+    return responder_reporte("activos-vencidos", reporte, filas, parametros)
 
 
 @api.get("/reportes/disponibilidad")
 def reporte_disponibilidad():
     fabrica = FabricaReporteDisponibilidad()
     reporte = fabrica.crear_reporte()
-    filas = reporte.generar(red, {"sede": argumento("sede"), "isbn": argumento("isbn")})
-    return respuesta({"reporte": reporte.nombre(), "filas": filas})
+    parametros = {"sede": argumento("sede"), "isbn": argumento("isbn")}
+    filas = reporte.generar(red, parametros)
+    return responder_reporte("disponibilidad", reporte, filas, parametros)
 
 
 @api.get("/reportes/libros-solicitados")
@@ -545,13 +560,14 @@ def reporte_libros_solicitados():
         raise ErrorDatosInvalidos("La fecha 'hasta' no puede ser anterior a 'desde'.")
     fabrica = FabricaReporteLibrosSolicitados()
     reporte = fabrica.crear_reporte()
-    filas = reporte.generar(red, {
+    parametros = {
         "fecha_desde": desde,
         "fecha_hasta": hasta,
         "sede_origen": argumento("sede_origen"),
         "sede_destino": argumento("sede_destino"),
-    })
-    return respuesta({"reporte": reporte.nombre(), "filas": filas})
+    }
+    filas = reporte.generar(red, parametros)
+    return responder_reporte("libros-solicitados", reporte, filas, parametros)
 
 
 @api.get("/reportes/movimiento")
@@ -559,7 +575,7 @@ def reporte_movimiento():
     fabrica = FabricaReporteMovimientoEnvios()
     reporte = fabrica.crear_reporte()
     filas = reporte.generar(red, {})
-    return respuesta({"reporte": reporte.nombre(), "filas": filas})
+    return responder_reporte("movimiento", reporte, filas, {})
 
 
 # ---------- Listados para formularios ----------

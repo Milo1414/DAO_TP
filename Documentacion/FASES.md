@@ -81,7 +81,7 @@ alineada con el código y publicar el repositorio.
 
 ### Fase 5. API y frontend
 
-- La API se publica bajo `/api` y devuelve JSON.
+- La API se publica bajo `/api` y devuelve JSON; los reportes también admiten descarga PDF.
 - Flask sirve `index.html`, `styles.css` y `app.js`.
 - El frontend tiene secciones para inicio, sedes, socios, catálogo,
   solicitudes, reservas, préstamos, remitos y reportes, agrupadas en el menú
@@ -240,6 +240,39 @@ Comprobaciones ejecutadas después de la limpieza:
   solicitud, el buscador, el empaque y la recepción funcionaron. El HTTP 409
   al repetir una sede fue el error esperado. También se verificó el formato
   de horario `08001800` → `08:00-18:00`.
+
+## Descarga de reportes PDF para la entrega
+
+- Se agregó ReportLab 5.1.0 y `backend/reportes_pdf.py`, que presenta las
+  filas calculadas por los reportes existentes. Usa funciones explícitas,
+  un archivo en memoria y tablas que repiten los encabezados entre páginas.
+- Las cuatro rutas admiten `formato=pdf`. Conservan las mismas fábricas,
+  cálculos, filtros y validaciones; `responder_reporte` elige JSON o PDF.
+  El archivo se envía como adjunto con `send_file`, sin guardarlo en SQLite
+  ni escribirlo en el disco del servidor.
+- Cada documento incluye título, fecha, filtros, utilidad para la gestión,
+  alcance de las métricas y resultados. Disponibilidad y movimiento dividen
+  las columnas en bloques legibles. Si no hay filas, se informa expresamente.
+- La interfaz muestra **Descargar PDF** después de generar un reporte,
+  incluidos los resultados vacíos. Conserva los parámetros de la consulta
+  exitosa; la fecha de referencia predeterminada se fija al consultar.
+  La descarga vuelve a consultar los registros al momento de generar el PDF.
+- Se actualizó el informe de estudio para explicar el recorrido completo
+  y reemplazar las advertencias sobre una funcionalidad antes pendiente.
+
+Comprobaciones de esta ampliación:
+
+- Suite Python: 68 pruebas correctas (60 existentes y 8 nuevas de PDF).
+- `node --check frontend/app.js` y `node tests/test_frontend.js`: correctos,
+  incluidas las direcciones de descarga, filtros, resultados vacíos y errores.
+- Se generaron los cuatro PDF con una copia de la demo, un documento vacío
+  y otro de once páginas con títulos largos y caracteres de marcado.
+  Se extrajo texto con PyMuPDF disponible en Python 3.11 y se revisó el diseño.
+  Se comprobó que el título de incidencias acompañe a su tabla.
+- Servidor reiniciado con la misma base de práctica: las cuatro descargas
+  respondieron HTTP 200 con `application/pdf` y disposición de adjunto.
+  En un navegador real se descargaron movimiento y disponibilidad filtrada
+  por S1/L1; el archivo descargado conserva los filtros y excluye otros libros.
 
 ## Cómo continuar
 

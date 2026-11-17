@@ -101,9 +101,51 @@ function comprobarFechas() {
     console.log("Fechas frontend: formato dia/mes/anio correcto.");
 }
 
+async function comprobarDescargaPDF() {
+    contexto.document.getElementById = function () {
+        return contexto.contenedorReporte;
+    };
+    contexto.contenedorReporte = { innerHTML: "" };
+    const peticiones = [];
+    contexto.pedir = async function (metodo, ruta) {
+        peticiones.push(ruta);
+        return { datos: { reporte: "Disponibilidad", filas: [] } };
+    };
+    vm.runInContext(`
+        estado.reporte = "disponibilidad";
+        estado.filtrosReporte = { sede: "S 1", isbn: "ISBN&1" };
+    `, contexto);
+    await vm.runInContext('cargarReporte("disponibilidad")', contexto);
+    assert.equal(peticiones[0], "/reportes/disponibilidad?sede=S+1&isbn=ISBN%261");
+    let html = contexto.contenedorReporte.innerHTML;
+    assert.match(html, /Descargar PDF/);
+    assert.match(html, /Sin datos/);
+    assert.match(html, /href="\/api\/reportes\/disponibilidad\?sede=S\+1&amp;isbn=ISBN%261&amp;formato=pdf"/);
+    vm.runInContext('estado.filtrosReporte.sede = "OTRA"; pintarReporte()', contexto);
+    assert.equal(contexto.contenedorReporte.innerHTML, html);
+
+    vm.runInContext(`
+        estado.reporte = "activos";
+        estado.filtrosReporte = {};
+    `, contexto);
+    await vm.runInContext('cargarReporte("activos")', contexto);
+    const fecha = vm.runInContext("hoyISO()", contexto);
+    assert.equal(peticiones[1], "/reportes/activos-vencidos?fecha_referencia=" + fecha);
+    assert.match(contexto.contenedorReporte.innerHTML, /fecha_referencia=.*&amp;formato=pdf/);
+
+    vm.runInContext('estado.reporte = "movimiento"; estado.filtrosReporte = {}', contexto);
+    await vm.runInContext('cargarReporte("movimiento")', contexto);
+    assert.match(contexto.contenedorReporte.innerHTML, /\/api\/reportes\/movimiento\?formato=pdf/);
+    contexto.pedir = async function () { throw new Error("Fallo esperado"); };
+    contexto.avisar = function () {};
+    await vm.runInContext('cargarReporte("movimiento")', contexto);
+    assert.doesNotMatch(contexto.contenedorReporte.innerHTML, /Descargar PDF/);
+    console.log("PDF frontend: filtros, descarga sin datos y errores correctos.");
+}
+
 comprobarTrayecto();
 comprobarFechas();
-comprobarRecepcion().catch(function (error) {
+comprobarRecepcion().then(comprobarDescargaPDF).catch(function (error) {
     console.error(error);
     process.exitCode = 1;
 });

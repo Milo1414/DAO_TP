@@ -14,6 +14,7 @@ const estado = {
     filtrosReporte: {},
     filasReporte: null,
     nombreReporte: "",
+    rutaReporteGenerado: "",
     cargandoReporte: false,
     numeroCampo: 0,
 };
@@ -993,7 +994,7 @@ function renderReportes() {
         ["movimiento", "Movimiento de envíos"],
     ];
     let html = '<section class="panel"><div class="panel-encabezado"><div><h2>Reportes</h2>';
-    html += "<p>Los reportes se generan con el patrón Factory Method y consultan la base mediante el ORM.</p></div></div>";
+    html += "<p>Consultá los resultados y descargá un PDF con su alcance y utilidad para la gestión.</p></div></div>";
     html += '<div class="botones-reportes">';
     for (let indice = 0; indice < botones.length; indice += 1) {
         const activo = estado.reporte === botones[indice][0] ? " activo" : "";
@@ -1038,12 +1039,18 @@ function pintarReporte() {
         contenedor.innerHTML = '<p class="nota">Elija un reporte y presione Generar reporte.</p>';
         return;
     }
+    let html = '<p class="titulo-reporte">' + esc(estado.nombreReporte) + "</p>";
+    const rutaPDF = API + estado.rutaReporteGenerado +
+        (estado.rutaReporteGenerado.includes("?") ? "&" : "?") + "formato=pdf";
+    html += '<p><a class="boton" href="' + esc(rutaPDF) +
+        '" target="_blank" rel="noopener">Descargar PDF</a></p>';
+    html += '<p class="nota">El PDF consulta los datos al descargar y conserva los filtros del último reporte generado.</p>';
     if (estado.filasReporte.length === 0) {
-        contenedor.innerHTML = '<div class="aviso neutro"><strong>Sin datos</strong><p>No hay información para los filtros elegidos.</p></div>';
+        html += '<div class="aviso neutro"><strong>Sin datos</strong><p>No hay información para los filtros elegidos.</p></div>';
+        contenedor.innerHTML = html;
         return;
     }
     const columnas = Object.keys(estado.filasReporte[0]);
-    let html = '<p class="titulo-reporte">' + esc(estado.nombreReporte) + "</p>";
     html += '<div class="tabla-contenedor"><table><thead><tr>';
     for (let indice = 0; indice < columnas.length; indice += 1) {
         const clave = columnas[indice];
@@ -1078,11 +1085,8 @@ function formatearValorReporte(clave, valor) {
     return String(valor);
 }
 
-async function cargarReporte(nombre) {
-    estado.cargandoReporte = true;
-    pintarReporte();
+function crearRutaReporte(nombre, filtros) {
     const parametros = new URLSearchParams();
-    const filtros = estado.filtrosReporte;
     if (nombre === "activos" && filtros.fecha_referencia) {
         parametros.set("fecha_referencia", filtros.fecha_referencia);
     }
@@ -1110,10 +1114,22 @@ async function cargarReporte(nombre) {
     }
     const ruta = "/reportes/" + RUTAS_REPORTES[nombre];
     const consulta = parametros.toString();
+    return ruta + (consulta ? "?" + consulta : "");
+}
+
+async function cargarReporte(nombre) {
+    estado.cargandoReporte = true;
+    estado.rutaReporteGenerado = "";
+    pintarReporte();
+    if (nombre === "activos" && !estado.filtrosReporte.fecha_referencia) {
+        estado.filtrosReporte.fecha_referencia = hoyISO();
+    }
+    const ruta = crearRutaReporte(nombre, estado.filtrosReporte);
     try {
-        const respuesta = await pedir("GET", ruta + (consulta ? "?" + consulta : ""));
+        const respuesta = await pedir("GET", ruta);
         estado.filasReporte = respuesta.datos.filas;
         estado.nombreReporte = respuesta.datos.reporte;
+        estado.rutaReporteGenerado = ruta;
     } catch (error) {
         estado.filasReporte = null;
         estado.nombreReporte = "";

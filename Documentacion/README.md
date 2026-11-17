@@ -86,6 +86,7 @@ para que el proyecto se pueda abrir y probar sin cargar datos a mano.
 │   ├── prestamos.py         Solicitud, Préstamo y Reserva
 │   ├── remito.py            Remito, asignaciones, historial y Observer
 │   ├── reportes.py          Factory Method y los cuatro reportes
+│   ├── reportes_pdf.py      presentación y descarga de los resultados en PDF
 │   ├── serializadores.py    conversión de entidades a JSON
 │   ├── validaciones.py      validaciones compartidas
 │   ├── errores.py           excepciones del dominio
@@ -105,6 +106,7 @@ para que el proyecto se pueda abrir y probar sin cargar datos a mano.
 ## API
 
 Todas las rutas de negocio se publican bajo `/api` y devuelven JSON.
+Los cuatro reportes también permiten descargar PDF con `formato=pdf`.
 
 ### Consultas generales
 
@@ -186,6 +188,12 @@ zona horaria (`Z` o un desplazamiento como `+00:00`) se rechazan con HTTP 400.
 Los reportes aceptan filtros opcionales por query string. Por ejemplo:
 `/api/reportes/disponibilidad?sede=S1&isbn=L1` o
 `/api/reportes/libros-solicitados?desde=2026-01-01&hasta=2026-01-31`.
+
+Para descargar un documento, usá **Reportes → Generar reporte → Descargar PDF**.
+También podés solicitar, por ejemplo,
+`/api/reportes/disponibilidad?sede=S1&isbn=L1&formato=pdf`.
+El PDF incluye filtros, alcance, utilidad para la gestión y tablas de resultados;
+se genera en memoria con ReportLab y consulta los datos al descargar.
 
 Los errores se devuelven con un código HTTP y un cuerpo como
 `{"error": "mensaje comprensible"}`.
